@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Create or view work in Linear
+    url: https://linear.app/YOUR_WORKSPACE
+    about: This repository uses Linear for issues, PRDs, triage, and planning. GitHub Issues are intentionally disabled.
