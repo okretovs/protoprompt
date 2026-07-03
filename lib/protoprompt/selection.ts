@@ -1,6 +1,11 @@
-import type { ModelRecommendationState, StageOption, StageOptionsResult } from "@/lib/protoprompt/types";
+import type {
+  ModelRecommendationState,
+  PageGroup,
+  StageOption,
+  StageOptionsResult,
+} from "@/lib/protoprompt/types";
 
-type ModelOption = Omit<StageOption, "recommendationState"> & {
+export type ModelOption = Omit<StageOption, "recommendationState"> & {
   recommendationState: ModelRecommendationState;
 };
 
@@ -8,15 +13,26 @@ export interface ModelStageOptionsResult extends Omit<StageOptionsResult, "optio
   options: ModelOption[];
 }
 
+export interface ModelPageGroup extends Omit<PageGroup, "options"> {
+  options: ModelOption[];
+}
+
+/** ADR 0007: a model-returned "required" is downgraded to "recommended"; no option is ever Required. */
+function downgradeOptions(options: ModelOption[]): StageOption[] {
+  return options.map((option) => ({
+    ...option,
+    recommendationState: option.recommendationState === "required" ? "recommended" : option.recommendationState,
+  }));
+}
+
 /** ADR 0007: a model-returned "required" is downgraded to "recommended"; no option is ever Required. */
 export function downgradeRequiredOptions(result: ModelStageOptionsResult): StageOptionsResult {
-  return {
-    ...result,
-    options: result.options.map((option) => ({
-      ...option,
-      recommendationState: option.recommendationState === "required" ? "recommended" : option.recommendationState,
-    })),
-  };
+  return { ...result, options: downgradeOptions(result.options) };
+}
+
+/** Same downgrade, applied to a single `grouped_by_page` page group. */
+export function downgradeRequiredOptionsInGroup(group: ModelPageGroup): PageGroup {
+  return { ...group, options: downgradeOptions(group.options) };
 }
 
 /**

@@ -36,10 +36,22 @@ export interface StageOption {
   whyItFits: string;
   extendedFeature: boolean;
   selectionState: SelectionState;
+  /** ASCII wireframe lines (4–7, ~40 cols); only present for `mockup_style` options. */
+  wireframe?: string[];
 }
 
 export interface StageOptionsResult {
   stage: StageId;
+  options: StageOption[];
+  assumptions: string[];
+}
+
+/**
+ * One page's synthesized options for a `grouped_by_page` stage (`components`,
+ * `mockup_style`). The chairman returns one `PageGroup` per selected app page.
+ */
+export interface PageGroup {
+  pageTitle: string;
   options: StageOption[];
   assumptions: string[];
 }
@@ -80,8 +92,13 @@ export interface ProjectState {
   idea: string;
   projectName: string;
   scopeMode: ScopeMode;
-  /** Option ids the user has explicitly selected per stage. */
-  selections: Partial<Record<StageId, string[]>>;
+  /**
+   * Option ids the user has explicitly selected, keyed by `cacheKey(stage, context)`
+   * (see `lib/protoprompt/cached-options.ts`). Non-grouped stages use an empty
+   * context (`build_direction::`); per-page stages key by page title
+   * (`components::Dashboard`).
+   */
+  selections: Partial<Record<string, string[]>>;
   cachedOptions: Partial<Record<string, StageOptionsResult>>;
   councilDossier?: CouncilDossier;
   councilAssumptions: string[];

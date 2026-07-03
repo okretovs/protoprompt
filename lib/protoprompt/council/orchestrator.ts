@@ -1,19 +1,27 @@
+import { selectedPageTitles } from "@/lib/protoprompt/pages";
 import { openai } from "@/lib/protoprompt/openai-client";
-import { downgradeRequiredOptions } from "@/lib/protoprompt/selection";
+import { downgradeRequiredOptions, downgradeRequiredOptionsInGroup } from "@/lib/protoprompt/selection";
 import type {
   CouncilCandidateResult,
   CouncilDossier,
   CouncilMemberId,
   CouncilMode,
   CouncilReviewResult,
+  PageGroup,
   ProjectState,
   StageId,
   StageOptionsResult,
 } from "@/lib/protoprompt/types";
 
-import { anonymizeCandidates, buildCandidatePrompt, buildChairmanPrompt, buildReviewPrompt } from "./build-prompts";
-import { parseChairmanResponse, parseCouncilCandidateResponse, parseCouncilReviewResponse } from "./parse";
-import { CHAIRMAN_SYSTEM_PROMPT, COUNCIL_MEMBERS } from "./prompts";
+import {
+  anonymizeCandidates,
+  buildCandidatePrompt,
+  buildChairmanPrompt,
+  buildGroupedChairmanPrompt,
+  buildReviewPrompt,
+} from "./build-prompts";
+import { parseChairmanResponse, parseCouncilCandidateResponse, parseCouncilReviewResponse, parseGroupedStageResponse } from "./parse";
+import { CHAIRMAN_SYSTEM_PROMPT, COUNCIL_MEMBERS, chairmanSystemPromptFor } from "./prompts";
 
 const COUNCIL_MEMBER_IDS: CouncilMemberId[] = ["A", "B", "C", "D"];
 const CANDIDATE_TEMPERATURE = 0.4;
@@ -24,10 +32,11 @@ const CHAIRMAN_TEMPERATURE = 0.4;
 export async function runCouncilMember(
   member: CouncilMemberId,
   stage: StageId,
-  project: ProjectState
+  project: ProjectState,
+  pages?: string[]
 ): Promise<CouncilCandidateResult> {
   const persona = COUNCIL_MEMBERS[member];
-  const prompt = buildCandidatePrompt(stage, project);
+  const prompt = buildCandidatePrompt(stage, project, pages);
   const raw = await openai.text.generate({ system: persona.basePrompt, prompt, temperature: CANDIDATE_TEMPERATURE });
   return parseCouncilCandidateResponse(member, raw);
 }
@@ -54,6 +63,20 @@ async function runReviews(
   return settled
     .filter((entry): entry is PromiseFulfilledResult<CouncilReviewResult> => entry.status === "fulfilled")
     .map((entry) => entry.value);
+}
+
+/** Waves 1-2, shared by flat (`runStage`) and grouped (`runGroupedStage`) orchestration. */
+async function runWaves1And2(
+  stage: StageId,
+  project: ProjectState,
+  pages?: string[]
+): Promise<{ candidates: CouncilCandidateResult[]; reviews: CouncilReviewResult[] }> {
+  const candidates = await Promise.all(
+    COUNCIL_MEMBER_IDS.map((member) => runCouncilMember(member, stage, project, pages))
+  );
+  const anonymized = anonymizeCandidates(candidates);
+  const reviews = await runReviews(stage, anonymized);
+  return { candidates, reviews };
 }
 
 export interface ChairmanResult {
@@ -110,9 +133,64 @@ export async function runStage({ stage, project }: RunStageParams): Promise<Chai
     return runChairman({ mode, stage, project, candidates: [], reviews: [] });
   }
 
-  const candidates = await Promise.all(COUNCIL_MEMBER_IDS.map((member) => runCouncilMember(member, stage, project)));
-  const anonymized = anonymizeCandidates(candidates);
-  const reviews = await runReviews(stage, anonymized);
-
+  const { candidates, reviews } = await runWaves1And2(stage, project);
   return runChairman({ mode, stage, project, candidates, reviews });
+}
+
+export interface GroupedChairmanResult {
+  pageGroups: PageGroup[];
+  dossier?: CouncilDossier;
+}
+
+export interface RunGroupedChairmanParams {
+  mode: CouncilMode;
+  stage: StageId;
+  project: ProjectState;
+  candidates: CouncilCandidateResult[];
+  reviews: CouncilReviewResult[];
+  pages: string[];
+}
+
+/** Wave 3 for `grouped_by_page` stages, with the same one-shot repair retry as `runChairman`. */
+export async function runGroupedChairman(params: RunGroupedChairmanParams): Promise<GroupedChairmanResult> {
+  try {
+    return await runGroupedChairmanOnce(params);
+  } catch {
+    return await runGroupedChairmanOnce(params);
+  }
+}
+
+async function runGroupedChairmanOnce({
+  mode,
+  stage,
+  project,
+  candidates,
+  reviews,
+  pages,
+}: RunGroupedChairmanParams): Promise<GroupedChairmanResult> {
+  const prompt = buildGroupedChairmanPrompt({ mode, stage, project, candidates, reviews, pages });
+  const raw = await openai.text.generate({
+    system: chairmanSystemPromptFor(stage),
+    prompt,
+    temperature: CHAIRMAN_TEMPERATURE,
+  });
+  const parsed = parseGroupedStageResponse(stage, raw);
+  return { pageGroups: parsed.pageGroups.map(downgradeRequiredOptionsInGroup), dossier: parsed.dossier };
+}
+
+/**
+ * Three-wave orchestration for a `grouped_by_page` stage (`components`,
+ * `mockup_style`, ADR 0003). Same dossier gating as `runStage`; the chairman
+ * returns one `PageGroup` per selected app page instead of a flat option list.
+ */
+export async function runGroupedStage({ stage, project }: RunStageParams): Promise<GroupedChairmanResult> {
+  const mode: CouncilMode = project.councilDossier ? "dossier" : "fresh";
+  const pages = selectedPageTitles(project);
+
+  if (mode === "dossier") {
+    return runGroupedChairman({ mode, stage, project, candidates: [], reviews: [], pages });
+  }
+
+  const { candidates, reviews } = await runWaves1And2(stage, project, pages);
+  return runGroupedChairman({ mode, stage, project, candidates, reviews, pages });
 }

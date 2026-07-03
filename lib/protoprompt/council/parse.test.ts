@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { CouncilParseError, parseChairmanResponse, parseCouncilCandidateResponse, parseCouncilReviewResponse } from "./parse";
+import {
+  CouncilParseError,
+  parseChairmanResponse,
+  parseCouncilCandidateResponse,
+  parseCouncilReviewResponse,
+  parseGroupedStageResponse,
+} from "./parse";
 
 describe("parseCouncilCandidateResponse", () => {
   it("parses a well-formed candidate response", () => {
@@ -100,5 +106,95 @@ describe("parseChairmanResponse", () => {
     });
 
     expect(() => parseChairmanResponse("build_direction", raw)).toThrow();
+  });
+});
+
+describe("parseGroupedStageResponse", () => {
+  function componentOption(overrides: Record<string, unknown> = {}) {
+    return {
+      title: "Filter bar",
+      description: "Filters the list by status",
+      tags: ["core"],
+      recommendation_state: "recommended",
+      why_it_fits: "Keeps the list scannable",
+      extended_feature: false,
+      selection_state: "unselected",
+      ...overrides,
+    };
+  }
+
+  function mockupOption(overrides: Record<string, unknown> = {}) {
+    return {
+      ...componentOption(),
+      tags: ["dense", "list-first"],
+      wireframe: ["+--------------------------------+", "| Dashboard                       |", "|----------------------------------|", "| [ Filter ]        [ + Add ]      |"],
+      ...overrides,
+    };
+  }
+
+  it("parses one group per page for a non-mockup grouped stage (components)", () => {
+    const raw = JSON.stringify({
+      page_groups: [
+        { page_title: "Dashboard", options: [componentOption()], assumptions: ["Users triage daily"] },
+        { page_title: "Settings", options: [componentOption({ title: "Toggle list" })], assumptions: [] },
+      ],
+    });
+
+    const parsed = parseGroupedStageResponse("components", raw);
+
+    expect(parsed.pageGroups).toHaveLength(2);
+    expect(parsed.pageGroups[0].pageTitle).toBe("Dashboard");
+    expect(parsed.pageGroups[0].options[0].title).toBe("Filter bar");
+    expect(parsed.pageGroups[0].options[0].wireframe).toBeUndefined();
+    expect(parsed.pageGroups[1].pageTitle).toBe("Settings");
+  });
+
+  it("requires a 4-7 line wireframe and 2-4 tags for mockup_style options", () => {
+    const raw = JSON.stringify({
+      page_groups: [{ page_title: "Dashboard", options: [mockupOption()], assumptions: [] }],
+    });
+
+    const parsed = parseGroupedStageResponse("mockup_style", raw);
+
+    expect(parsed.pageGroups[0].options[0].wireframe).toHaveLength(4);
+    expect(parsed.pageGroups[0].options[0].tags).toHaveLength(2);
+  });
+
+  it("throws when a mockup_style option's wireframe is too short", () => {
+    const raw = JSON.stringify({
+      page_groups: [
+        { page_title: "Dashboard", options: [mockupOption({ wireframe: ["one line"] })], assumptions: [] },
+      ],
+    });
+
+    expect(() => parseGroupedStageResponse("mockup_style", raw)).toThrow(CouncilParseError);
+  });
+
+  it("throws when a mockup_style option has too many tags", () => {
+    const raw = JSON.stringify({
+      page_groups: [
+        {
+          page_title: "Dashboard",
+          options: [mockupOption({ tags: ["a", "b", "c", "d", "e"] })],
+          assumptions: [],
+        },
+      ],
+    });
+
+    expect(() => parseGroupedStageResponse("mockup_style", raw)).toThrow(CouncilParseError);
+  });
+
+  it("throws CouncilParseError when page_groups array is missing", () => {
+    expect(() => parseGroupedStageResponse("components", JSON.stringify({}))).toThrow(CouncilParseError);
+  });
+
+  it("generates stable ids scoped to the page title", () => {
+    const raw = JSON.stringify({
+      page_groups: [{ page_title: "Dashboard", options: [componentOption()], assumptions: [] }],
+    });
+
+    const parsed = parseGroupedStageResponse("components", raw);
+
+    expect(parsed.pageGroups[0].options[0].id).toBe("components-dashboard-0-filter-bar");
   });
 });

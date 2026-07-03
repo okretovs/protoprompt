@@ -12,8 +12,9 @@ function projectBrief(project: ProjectState): string {
   return `Idea: ${project.idea}\nProject name: ${project.projectName}\nScope mode: ${project.scopeMode}`;
 }
 
-export function buildCandidatePrompt(stage: StageId, project: ProjectState): string {
-  return `${projectBrief(project)}\n\nStage: ${stage}\n\nPropose candidate options for this stage.`;
+export function buildCandidatePrompt(stage: StageId, project: ProjectState, pages?: string[]): string {
+  const pagesLine = pages && pages.length > 0 ? `\nPages: ${JSON.stringify(pages)}` : "";
+  return `${projectBrief(project)}\n\nStage: ${stage}${pagesLine}\n\nPropose candidate options for this stage.`;
 }
 
 /** Anonymizes each member's candidates as response_a..d, shuffled so members can't infer authorship. */
@@ -58,4 +59,26 @@ export function buildChairmanPrompt({
   )}\n\nReviews:\n${JSON.stringify(reviews, null, 2)}\n\nDossier: ${
     project.councilDossier ? JSON.stringify(project.councilDossier) : "none"
   }`;
+}
+
+export interface GroupedChairmanPromptParams extends ChairmanPromptParams {
+  /** Ordered titles of the selected app pages; the chairman returns one group per page, in this order. */
+  pages: string[];
+}
+
+export function buildGroupedChairmanPrompt({
+  mode,
+  stage,
+  project,
+  candidates,
+  reviews,
+  pages,
+}: GroupedChairmanPromptParams): string {
+  return `${projectBrief(project)}\n\nMode: ${mode}\nStage: ${stage}\nPages: ${JSON.stringify(
+    pages
+  )}\n\nCandidates:\n${JSON.stringify(candidates, null, 2)}\n\nReviews:\n${JSON.stringify(
+    reviews,
+    null,
+    2
+  )}\n\nDossier: ${project.councilDossier ? JSON.stringify(project.councilDossier) : "none"}`;
 }
