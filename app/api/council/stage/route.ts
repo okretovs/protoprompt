@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { runStage } from "@/lib/protoprompt/council/orchestrator";
 import type { ProjectState, StageId } from "@/lib/protoprompt/types";
 
-const SUPPORTED_STAGES: StageId[] = ["build_direction"];
+const SUPPORTED_STAGES: StageId[] = ["build_direction", "data_sources", "app_pages"];
 
 interface RunStageRequestBody {
   stage?: unknown;
