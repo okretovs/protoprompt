@@ -1,9 +1,12 @@
 import type {
   ModelRecommendationState,
   PageGroup,
+  ProjectState,
   StageOption,
   StageOptionsResult,
+  StageId,
 } from "@/lib/protoprompt/types";
+import { cacheKey } from "@/lib/protoprompt/cached-options";
 
 export type ModelOption = Omit<StageOption, "recommendationState"> & {
   recommendationState: ModelRecommendationState;
@@ -48,4 +51,28 @@ export function seedDefaultSelection(
     return existingSelection ?? [];
   }
   return options.filter((option) => option.selectionState === "selected").map((option) => option.id);
+}
+
+export function persistDefaultSelection(
+  project: ProjectState,
+  stage: StageId,
+  options: StageOption[],
+  context?: string
+): { project: ProjectState; selectedIds: string[] } {
+  const key = cacheKey(stage, context);
+  const existing = project.selections[key];
+  const hasUserChosen = existing !== undefined;
+  const selectedIds = seedDefaultSelection(options, existing, hasUserChosen);
+
+  if (hasUserChosen) {
+    return { project, selectedIds };
+  }
+
+  return {
+    project: {
+      ...project,
+      selections: { ...project.selections, [key]: selectedIds },
+    },
+    selectedIds,
+  };
 }
