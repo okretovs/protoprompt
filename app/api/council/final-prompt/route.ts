@@ -5,6 +5,7 @@ import type { ProjectState } from "@/lib/protoprompt/types";
 
 interface FinalPromptRequestBody {
   project?: unknown;
+  openAIKey?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -15,7 +16,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const stream = await generateFinalPrompt({ project: body.project as ProjectState });
+    const apiKey = typeof body.openAIKey === "string" ? body.openAIKey : undefined;
+    const stream = await generateFinalPrompt({ project: body.project as ProjectState, apiKey });
     return new Response(stream, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",

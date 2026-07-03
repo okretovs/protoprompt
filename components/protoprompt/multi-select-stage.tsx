@@ -25,6 +25,7 @@ import type {
 interface MultiSelectStageProps {
   stage: StageId;
   project: ProjectState;
+  openAIKey: string;
   onUpdateProject: (next: ProjectState) => void;
   onContinue: () => void;
   onBack: () => void;
@@ -45,7 +46,14 @@ const SECTION_KICKER: Record<StageId, string> = {
   final_prompt: "final prompt",
 };
 
-export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, onBack }: MultiSelectStageProps) {
+export function MultiSelectStage({
+  stage,
+  project,
+  openAIKey,
+  onUpdateProject,
+  onContinue,
+  onBack,
+}: MultiSelectStageProps) {
   const persistedSelection = project.selections[cacheKey(stage)];
 
   const [run, setRun] = useState<RunState>(() => {
@@ -60,7 +68,6 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
       Boolean(persistedSelection?.length)
     );
   });
-  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     const cached = getCached(project, stage);
@@ -73,7 +80,7 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
         const response = await fetch("/api/council/stage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage, project }),
+          body: JSON.stringify({ stage, project, openAIKey }),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -113,14 +120,13 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
     return () => {
       cancelled = true;
     };
-  }, [stage, project, onUpdateProject, retryKey]);
+  }, [stage, project, openAIKey, onUpdateProject]);
 
   function retryWithoutCache() {
     const nextProject = clearGeneratedCouncilState(project);
     onUpdateProject(nextProject);
     setRun({ status: "loading" });
     setSelectedIds([]);
-    setRetryKey((key) => key + 1);
   }
 
   function toggleOption(id: string) {

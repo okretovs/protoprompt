@@ -23,9 +23,12 @@ Gate on `project.council_dossier`:
 
 Per-page stages (`components`, `mockup_style`) are `grouped_by_page`: the chairman returns `page_groups[]`; the frontend picks the group matching the current sub-context and caches all groups under `cached_options[stage::pageTitle]`. Every `StageOptionsResult` is cached under `cached_options[stage::context]`. Chairman-provided `selection_state === 'selected'` seeds the user's selection only if they haven't chosen yet; assumptions append to `project.council_assumptions` deduplicated.
 
+Back/forward navigation during a run must preserve every prior selection and reuse cached options. A completed stage should not regenerate during navigation unless a run-level invalidator, such as scope mode, explicitly clears the cache and dossier.
+
 ## Consequences
 
 - First stage pays full council cost; later stages are fast via the cached dossier.
 - Caching makes back-navigation instant but requires disciplined invalidation (see ADR 0005).
+- Selection preservation is part of the Day 0 completion bar, not a post-MVP enhancement.
 - The dossier is the shared source of cross-stage context; its shape is load-bearing for `mode: 'dossier'`.
 - Loading UX surfaces the in-flight wave (candidates / reviews / chairman) to keep the agent inspectable.

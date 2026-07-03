@@ -9,6 +9,7 @@ import type { ProjectState } from "@/lib/protoprompt/types";
 
 interface FinalPromptStageProps {
   project: ProjectState;
+  openAIKey: string;
 }
 
 type RunState =
@@ -16,7 +17,7 @@ type RunState =
   | { status: "error"; message: string; markdown: string }
   | { status: "ready"; markdown: string };
 
-export function FinalPromptStage({ project }: FinalPromptStageProps) {
+export function FinalPromptStage({ project, openAIKey }: FinalPromptStageProps) {
   const [run, setRun] = useState<RunState>({ status: "loading", markdown: "" });
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [generation, setGeneration] = useState(0);
@@ -27,7 +28,7 @@ export function FinalPromptStage({ project }: FinalPromptStageProps) {
     async function streamPrompt(attempt = 0): Promise<void> {
       setRun({ status: "loading", markdown: "" });
       try {
-        const markdown = await readPromptStream(project, abortController.signal, (chunk) => {
+        const markdown = await readPromptStream(project, openAIKey, abortController.signal, (chunk) => {
           setRun((current) => ({ status: "loading", markdown: current.markdown + chunk }));
         });
         setRun({ status: "ready", markdown });
@@ -47,7 +48,7 @@ export function FinalPromptStage({ project }: FinalPromptStageProps) {
 
     void streamPrompt();
     return () => abortController.abort();
-  }, [project, generation]);
+  }, [project, openAIKey, generation]);
 
   async function handleCopy() {
     const markdown = run.markdown;
@@ -102,13 +103,14 @@ export function FinalPromptStage({ project }: FinalPromptStageProps) {
 
 export async function readPromptStream(
   project: ProjectState,
+  openAIKey: string,
   signal: AbortSignal,
   onChunk: (chunk: string) => void
 ): Promise<string> {
   const response = await fetch("/api/council/final-prompt", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project }),
+    body: JSON.stringify({ project, openAIKey }),
     signal,
   });
   if (!response.ok || !response.body) {

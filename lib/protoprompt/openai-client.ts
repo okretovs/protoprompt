@@ -12,12 +12,13 @@ export interface GenerateParams {
   system: string;
   prompt: string;
   temperature: number;
+  apiKey?: string;
 }
 
 export type StreamParams = GenerateParams;
 
-async function generate({ system, prompt, temperature }: GenerateParams): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
+async function generate({ system, prompt, temperature, apiKey: providedApiKey }: GenerateParams): Promise<string> {
+  const apiKey = resolveApiKey(providedApiKey);
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not set");
   }
@@ -52,8 +53,13 @@ async function generate({ system, prompt, temperature }: GenerateParams): Promis
   return content;
 }
 
-async function generateStreamRaw({ system, prompt, temperature }: StreamParams): Promise<ReadableStream<Uint8Array>> {
-  const apiKey = process.env.OPENAI_API_KEY;
+async function generateStreamRaw({
+  system,
+  prompt,
+  temperature,
+  apiKey: providedApiKey,
+}: StreamParams): Promise<ReadableStream<Uint8Array>> {
+  const apiKey = resolveApiKey(providedApiKey);
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not set");
   }
@@ -81,6 +87,10 @@ async function generateStreamRaw({ system, prompt, temperature }: StreamParams):
   }
 
   return response.body.pipeThrough(openAIEventStreamToText());
+}
+
+function resolveApiKey(providedApiKey: string | undefined): string | undefined {
+  return providedApiKey?.trim() || process.env.OPENAI_API_KEY;
 }
 
 function openAIEventStreamToText(): TransformStream<Uint8Array, Uint8Array> {

@@ -33,12 +33,13 @@ export async function runCouncilMember(
   member: CouncilMemberId,
   stage: StageId,
   project: ProjectState,
-  pages?: string[]
+  pages?: string[],
+  apiKey?: string
 ): Promise<CouncilCandidateResult> {
   const persona = COUNCIL_MEMBERS[member];
   const prompt = buildCandidatePrompt(stage, project, pages);
   const raw = await withTransientRetry(() =>
-    openai.text.generate({ system: persona.basePrompt, prompt, temperature: CANDIDATE_TEMPERATURE })
+    openai.text.generate({ system: persona.basePrompt, prompt, temperature: CANDIDATE_TEMPERATURE, apiKey })
   );
   return parseCouncilCandidateResponse(member, raw);
 }
@@ -47,22 +48,24 @@ export async function runCouncilMember(
 export async function reviewByMember(
   member: CouncilMemberId,
   stage: StageId,
-  anonymized: Record<string, CouncilCandidateResult["candidates"]>
+  anonymized: Record<string, CouncilCandidateResult["candidates"]>,
+  apiKey?: string
 ): Promise<CouncilReviewResult> {
   const persona = COUNCIL_MEMBERS[member];
   const prompt = buildReviewPrompt(stage, anonymized);
   const raw = await withTransientRetry(() =>
-    openai.text.generate({ system: persona.reviewPrompt, prompt, temperature: REVIEW_TEMPERATURE })
+    openai.text.generate({ system: persona.reviewPrompt, prompt, temperature: REVIEW_TEMPERATURE, apiKey })
   );
   return parseCouncilReviewResponse(member, raw);
 }
 
 async function runReviews(
   stage: StageId,
-  anonymized: Record<string, CouncilCandidateResult["candidates"]>
+  anonymized: Record<string, CouncilCandidateResult["candidates"]>,
+  apiKey?: string
 ): Promise<CouncilReviewResult[]> {
   const settled = await Promise.allSettled(
-    COUNCIL_MEMBER_IDS.map((member) => reviewByMember(member, stage, anonymized))
+    COUNCIL_MEMBER_IDS.map((member) => reviewByMember(member, stage, anonymized, apiKey))
   );
   return settled
     .filter((entry): entry is PromiseFulfilledResult<CouncilReviewResult> => entry.status === "fulfilled")
@@ -73,13 +76,14 @@ async function runReviews(
 async function runWaves1And2(
   stage: StageId,
   project: ProjectState,
-  pages?: string[]
+  pages?: string[],
+  apiKey?: string
 ): Promise<{ candidates: CouncilCandidateResult[]; reviews: CouncilReviewResult[] }> {
   const candidates = await Promise.all(
-    COUNCIL_MEMBER_IDS.map((member) => runCouncilMember(member, stage, project, pages))
+    COUNCIL_MEMBER_IDS.map((member) => runCouncilMember(member, stage, project, pages, apiKey))
   );
   const anonymized = anonymizeCandidates(candidates);
-  const reviews = await runReviews(stage, anonymized);
+  const reviews = await runReviews(stage, anonymized, apiKey);
   return { candidates, reviews };
 }
 
@@ -94,6 +98,7 @@ export interface RunChairmanParams {
   project: ProjectState;
   candidates: CouncilCandidateResult[];
   reviews: CouncilReviewResult[];
+  apiKey?: string;
 }
 
 /** Wave 3: chairman synthesis, with one automatic repair retry on failure (ADR 0006). */
@@ -105,13 +110,21 @@ export async function runChairman(params: RunChairmanParams): Promise<ChairmanRe
   }
 }
 
-async function runChairmanOnce({ mode, stage, project, candidates, reviews }: RunChairmanParams): Promise<ChairmanResult> {
+async function runChairmanOnce({
+  mode,
+  stage,
+  project,
+  candidates,
+  reviews,
+  apiKey,
+}: RunChairmanParams): Promise<ChairmanResult> {
   const prompt = buildChairmanPrompt({ mode, stage, project, candidates, reviews });
   const raw = await withTransientRetry(() =>
     openai.text.generate({
       system: CHAIRMAN_SYSTEM_PROMPT,
       prompt,
       temperature: CHAIRMAN_TEMPERATURE,
+      apiKey,
     })
   );
   const parsed = parseChairmanResponse(stage, raw);
@@ -125,6 +138,7 @@ async function runChairmanOnce({ mode, stage, project, candidates, reviews }: Ru
 export interface RunStageParams {
   stage: StageId;
   project: ProjectState;
+  apiKey?: string;
 }
 
 /**
@@ -132,15 +146,15 @@ export interface RunStageParams {
  * `project.councilDossier`: missing -> full Waves 1-3 in "fresh" mode;
  * present -> Wave 3 only in "dossier" mode, reusing cached context.
  */
-export async function runStage({ stage, project }: RunStageParams): Promise<ChairmanResult> {
+export async function runStage({ stage, project, apiKey }: RunStageParams): Promise<ChairmanResult> {
   const mode: CouncilMode = project.councilDossier ? "dossier" : "fresh";
 
   if (mode === "dossier") {
-    return runChairman({ mode, stage, project, candidates: [], reviews: [] });
+    return runChairman({ mode, stage, project, candidates: [], reviews: [], apiKey });
   }
 
-  const { candidates, reviews } = await runWaves1And2(stage, project);
-  return runChairman({ mode, stage, project, candidates, reviews });
+  const { candidates, reviews } = await runWaves1And2(stage, project, undefined, apiKey);
+  return runChairman({ mode, stage, project, candidates, reviews, apiKey });
 }
 
 export interface GroupedChairmanResult {
@@ -155,6 +169,7 @@ export interface RunGroupedChairmanParams {
   candidates: CouncilCandidateResult[];
   reviews: CouncilReviewResult[];
   pages: string[];
+  apiKey?: string;
 }
 
 /** Wave 3 for `grouped_by_page` stages, with the same one-shot repair retry as `runChairman`. */
@@ -173,6 +188,7 @@ async function runGroupedChairmanOnce({
   candidates,
   reviews,
   pages,
+  apiKey,
 }: RunGroupedChairmanParams): Promise<GroupedChairmanResult> {
   const prompt = buildGroupedChairmanPrompt({ mode, stage, project, candidates, reviews, pages });
   const raw = await withTransientRetry(() =>
@@ -180,6 +196,7 @@ async function runGroupedChairmanOnce({
       system: chairmanSystemPromptFor(stage),
       prompt,
       temperature: CHAIRMAN_TEMPERATURE,
+      apiKey,
     })
   );
   const parsed = parseGroupedStageResponse(stage, raw);
@@ -191,14 +208,14 @@ async function runGroupedChairmanOnce({
  * `mockup_style`, ADR 0003). Same dossier gating as `runStage`; the chairman
  * returns one `PageGroup` per selected app page instead of a flat option list.
  */
-export async function runGroupedStage({ stage, project }: RunStageParams): Promise<GroupedChairmanResult> {
+export async function runGroupedStage({ stage, project, apiKey }: RunStageParams): Promise<GroupedChairmanResult> {
   const mode: CouncilMode = project.councilDossier ? "dossier" : "fresh";
   const pages = selectedPageTitles(project);
 
   if (mode === "dossier") {
-    return runGroupedChairman({ mode, stage, project, candidates: [], reviews: [], pages });
+    return runGroupedChairman({ mode, stage, project, candidates: [], reviews: [], pages, apiKey });
   }
 
-  const { candidates, reviews } = await runWaves1And2(stage, project, pages);
-  return runGroupedChairman({ mode, stage, project, candidates, reviews, pages });
+  const { candidates, reviews } = await runWaves1And2(stage, project, pages, apiKey);
+  return runGroupedChairman({ mode, stage, project, candidates, reviews, pages, apiKey });
 }

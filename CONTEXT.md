@@ -13,6 +13,7 @@ The user drops in a one-line application idea. An AI Council of four personas de
 - Turn a rough application idea into a polished, build-ready implementation prompt.
 - Let users plan by **selecting curated options**, not by writing requirements docs by hand.
 - Make the agent feel active and inspectable (visible council "waves"), never mysterious.
+- For Day 0, the non-negotiable success moment is completing the full **7-stage flow** end to end.
 
 ## Target users
 
@@ -24,6 +25,7 @@ Product-minded builders and internal-tools engineers using vibe-coding tools who
 - UI: Tailwind CSS + shadcn/ui, with a component-scoped `--pp-*` token layer under `.protoprompt-root`
 - Runtime: Next.js API routes on Vercel; streaming responses for the final prompt only
 - LLM: OpenAI (gpt-5 mini); buffered `.generate` for the council pipeline, `generateStreamRaw` for the final prompt
+- OpenAI key handling: server `OPENAI_API_KEY` remains supported; the Day 0 UI must require a user-provided OpenAI key before idea submission. The key is kept in memory only, so missing server configuration does not block the full flow.
 - Data store: none in MVP (stateless, all state client-side)
 - Auth provider: none in MVP
 - Hosting: Vercel
@@ -40,9 +42,11 @@ See `docs/adr/` for the decisions behind each of these.
 4. **App Pages** — 2–8 options, multi-select unlimited.
 5. **Components (per page)** — 2–6 options per selected page. One page at a time; Next advances the sub-page, then advances the stage.
 6. **Mockup Style (per page)** — 2–6 options per selected page, single-select (radio). Each option includes a compact ASCII wireframe (4–7 lines, ~40 cols) and 2–4 short tags.
-7. **Final Prompt** — auto-streaming markdown, with Copy / Download `.md` / Regenerate.
+7. **Final Prompt** — auto-streaming markdown, with Copy / Download `.md` / Regenerate. The Day 0 quality bar is a prompt that can be used directly in a vibe-coding tool, not merely a sectioned placeholder.
 
 The Continue button changes label contextually: "Next page" (mid per-page stage), "Generate prompt" (last stage before final), else "Continue". Back reverses the same rules.
+
+Day 0 navigation must preserve every prior selection during the session. Back/forward movement should not regenerate a completed stage unless the user explicitly changes a run-level invalidator such as scope mode.
 
 ## Council & orchestration
 
@@ -90,15 +94,18 @@ Changing scope wipes `cached_options` and `council_dossier`, then re-runs the cu
 | `council_assumptions` | Deduplicated assumptions surfaced to the user | Appended per run |
 | Scope mode | Enriched Building (default) vs Original Scope | Change wipes cache + dossier |
 | `extended_feature` | Adjacent capability beyond the raw idea | Violet "Extended Feature" badge |
+| User OpenAI key | A user-entered API key used for the current run when needed | Required before idea submit; memory-only; never persisted; hide the masked value after submission |
 | `build_direction` | Stage 2 core-functionality selections | Multi-select |
 | OptionCard | Core UI primitive for a curated option | Multi-select / radio / mockup variants |
 | Recommendation state | Recommended / Optional / Deferred | Never Required (downgraded to Recommended) |
 | "Why it fits" | One-sentence rationale shown in a HoverCard | |
-| Final prompt | Streamed markdown operating brief | Fixed H2 sections |
+| Final prompt | Streamed markdown operating brief | Fixed H2 sections; must be directly usable for Day 0 |
 
 ## Final prompt sections
 
 `generateFinalPrompt` streams markdown with fixed H2 sections: App Name, Product Objective, Target Users, MVP Scope, Build Direction, Data Sources, Pages & Navigation, Features by Page, Components by Page, Mockup Direction by Page, Data Model, Workflows, User Roles & Permissions, Integrations, UI & Design Direction, Design Principles, Validation Rules, Empty States, Error States, Acceptance Criteria, Implementation Notes.
+
+Day 0 final-prompt acceptance requires the streamed brief to be directly usable as an implementation prompt in a vibe-coding tool.
 
 ## Failure handling
 
@@ -114,7 +121,9 @@ Changing scope wipes `cached_options` and `council_dossier`, then re-runs the cu
 - Vercel Preview deployments are the primary UI/deployment verification surface.
 - MVP is stateless: no database, no auth.
 - OpenAI is the sole LLM provider (gpt-5 mini).
+- User-provided OpenAI keys are allowed for Day 0 resilience, but must remain in memory only and must not be stored in localStorage/sessionStorage, docs, logs, commits, or backend persistence.
 - Cards over forms: the user selects rather than writes. Options are never marked Required.
+- Within a run, back/forward navigation must preserve all prior selections and use cached stage options where available.
 - Orange is a signal color, not decoration. Avoid generic SaaS and AI-cliché visuals.
 - Secrets must not be committed.
 
