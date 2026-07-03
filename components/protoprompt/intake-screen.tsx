@@ -3,25 +3,31 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { isOpenAIKeyReady, shouldHideSubmittedKey } from "@/lib/protoprompt/openai-key";
 
 interface IntakeScreenProps {
-  onSubmit: (idea: string, projectName: string) => void;
+  onSubmit: (idea: string, projectName: string, openAIKey: string) => void;
 }
 
 export function IntakeScreen({ onSubmit }: IntakeScreenProps) {
   const [idea, setIdea] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [openAIKey, setOpenAIKey] = useState("");
+  const [submittedKey, setSubmittedKey] = useState(false);
 
-  const canConvene = idea.trim().length > 0 && projectName.trim().length > 0;
+  const canConvene = idea.trim().length > 0 && projectName.trim().length > 0 && isOpenAIKeyReady(openAIKey);
 
   function handleConvene() {
     if (!canConvene) return;
-    onSubmit(idea.trim(), projectName.trim());
+    setSubmittedKey(true);
+    onSubmit(idea.trim(), projectName.trim(), openAIKey.trim());
   }
 
   function handleNewIdea() {
     setIdea("");
     setProjectName("");
+    setOpenAIKey("");
+    setSubmittedKey(false);
   }
 
   return (
@@ -31,6 +37,24 @@ export function IntakeScreen({ onSubmit }: IntakeScreenProps) {
         <Button variant="ppGhost" size="sm" onClick={handleNewIdea}>
           New idea
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="openai-key" className="pp-label">
+          OpenAI API key
+        </label>
+        <input
+          id="openai-key"
+          type="password"
+          value={shouldHideSubmittedKey(submittedKey) ? "" : openAIKey}
+          onChange={(event) => setOpenAIKey(event.target.value)}
+          placeholder="sk-..."
+          autoComplete="off"
+          className="pp-mono rounded-[var(--pp-radius-sm)] border border-[var(--pp-border-hairline)] bg-[var(--pp-glass)] px-3 py-2 text-sm text-[var(--pp-text-primary)] outline-none placeholder:text-[var(--pp-text-muted)] focus-visible:border-[var(--pp-border-strong)]"
+        />
+        <p className="pp-text-muted text-xs">
+          Required for Day 0. Kept in memory only; never saved to browser storage.
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">

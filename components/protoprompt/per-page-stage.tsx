@@ -26,6 +26,7 @@ import type {
 interface PerPageStageProps {
   stage: "components" | "mockup_style";
   project: ProjectState;
+  openAIKey: string;
   onUpdateProject: (next: ProjectState) => void;
   onContinue: () => void;
   onBack: () => void;
@@ -43,14 +44,13 @@ const SECTION_KICKER: Record<StageId, string> = {
   final_prompt: "final prompt",
 };
 
-export function PerPageStage({ stage, project, onUpdateProject, onContinue, onBack }: PerPageStageProps) {
+export function PerPageStage({ stage, project, openAIKey, onUpdateProject, onContinue, onBack }: PerPageStageProps) {
   const pages = selectedPageTitles(project);
   const [pageIndex, setPageIndex] = useState(0);
   const [run, setRun] = useState<RunState>(() =>
     pages.every((title) => getCached(project, stage, title) !== undefined) ? { status: "ready" } : { status: "loading" }
   );
   const fetchedRef = useRef(false);
-  const [retryKey, setRetryKey] = useState(0);
 
   const currentPageTitle = pages[pageIndex];
   const isMockup = stage === "mockup_style";
@@ -67,7 +67,7 @@ export function PerPageStage({ stage, project, onUpdateProject, onContinue, onBa
         const response = await fetch("/api/council/stage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage, project }),
+          body: JSON.stringify({ stage, project, openAIKey }),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -106,14 +106,13 @@ export function PerPageStage({ stage, project, onUpdateProject, onContinue, onBa
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, project, onUpdateProject, retryKey]);
+  }, [stage, project, openAIKey, onUpdateProject]);
 
   function retryWithoutCache() {
     const nextProject = clearGeneratedCouncilState(project);
     fetchedRef.current = false;
     onUpdateProject(nextProject);
     setRun({ status: "loading" });
-    setRetryKey((key) => key + 1);
   }
 
   const currentGroup = run.status === "ready" && currentPageTitle !== undefined

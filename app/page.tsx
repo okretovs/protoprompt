@@ -21,6 +21,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [project, setProject] = useState<ProjectState | null>(null);
   const [stage, setStage] = useState<StageId | null>(null);
+  const [openAIKey, setOpenAIKey] = useState("");
 
   function handleUpdateProject(next: ProjectState) {
     setProject(next);
@@ -40,6 +41,7 @@ export default function Home() {
   function handleReset() {
     setProject(null);
     setStage(null);
+    setOpenAIKey("");
   }
 
   function handleScopeChange(scopeMode: ScopeMode) {
@@ -79,8 +81,9 @@ export default function Home() {
 
         <hr className="pp-divider" />
 
-        {!project && <IntakeScreen onSubmit={(idea, projectName) => {
+        {!project && <IntakeScreen onSubmit={(idea, projectName, key) => {
           const next = createProjectState(idea, projectName);
+          setOpenAIKey(key);
           setProject(next);
           setStage("build_direction");
         }} />}
@@ -126,6 +129,7 @@ export default function Home() {
             key={`${stage}::${project.scopeMode}`}
             stage={stage}
             project={project}
+            openAIKey={openAIKey}
             onUpdateProject={handleUpdateProject}
             onContinue={handleAdvance}
             onBack={handleRetreat}
@@ -137,13 +141,14 @@ export default function Home() {
             key={`${stage}::per-page::${project.scopeMode}`}
             stage={stage as "components" | "mockup_style"}
             project={project}
+            openAIKey={openAIKey}
             onUpdateProject={handleUpdateProject}
             onContinue={handleAdvance}
             onBack={handleRetreat}
           />
         )}
 
-        {project && !showStage && stage === null && <FinalPromptStage project={project} />}
+        {project && !showStage && stage === null && <FinalPromptStage project={project} openAIKey={openAIKey} />}
       </main>
     </div>
   );

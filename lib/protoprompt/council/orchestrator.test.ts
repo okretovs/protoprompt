@@ -189,6 +189,15 @@ describe("runStage — dossier mode", () => {
     );
   });
 
+  it("passes a user-provided OpenAI key through all council calls", async () => {
+    const project = createProjectState("A task app", "Fieldnotes");
+
+    await runStage({ stage: "build_direction", project, apiKey: "sk-user" });
+
+    expect(generateMock).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "sk-user" }));
+    expect(generateMock).toHaveBeenCalledTimes(9);
+  });
+
   it.each([
     ["data_sources"] as const,
     ["app_pages"] as const,

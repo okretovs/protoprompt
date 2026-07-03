@@ -11,6 +11,7 @@ const SUPPORTED_STAGES: StageId[] = [...FLAT_STAGES, ...GROUPED_STAGES];
 interface RunStageRequestBody {
   stage?: unknown;
   project?: unknown;
+  openAIKey?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -26,13 +27,14 @@ export async function POST(request: Request) {
   }
 
   const project = body.project as ProjectState;
+  const apiKey = typeof body.openAIKey === "string" ? body.openAIKey : undefined;
 
   try {
     if (isPerPageStage(stage)) {
-      const { pageGroups, dossier } = await runGroupedStage({ stage, project });
+      const { pageGroups, dossier } = await runGroupedStage({ stage, project, apiKey });
       return NextResponse.json({ pageGroups, dossier });
     }
-    const { result, dossier } = await runStage({ stage, project });
+    const { result, dossier } = await runStage({ stage, project, apiKey });
     return NextResponse.json({ result, dossier });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Council run failed";
