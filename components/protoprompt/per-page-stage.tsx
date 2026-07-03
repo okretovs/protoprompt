@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 import { AssumptionsSummary } from "@/components/protoprompt/assumptions-summary";
+import { CouncilErrorCard, CouncilLoading } from "@/components/protoprompt/council-status";
 import { OptionCard } from "@/components/protoprompt/option-card";
 import { Button } from "@/components/ui/button";
 import {
   appendAssumptions,
   cacheKey,
+  clearGeneratedCouncilState,
   getCached,
   setCached,
 } from "@/lib/protoprompt/cached-options";
@@ -48,6 +50,7 @@ export function PerPageStage({ stage, project, onUpdateProject, onContinue, onBa
     pages.every((title) => getCached(project, stage, title) !== undefined) ? { status: "ready" } : { status: "loading" }
   );
   const fetchedRef = useRef(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   const currentPageTitle = pages[pageIndex];
   const isMockup = stage === "mockup_style";
@@ -103,7 +106,15 @@ export function PerPageStage({ stage, project, onUpdateProject, onContinue, onBa
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, project, onUpdateProject]);
+  }, [stage, project, onUpdateProject, retryKey]);
+
+  function retryWithoutCache() {
+    const nextProject = clearGeneratedCouncilState(project);
+    fetchedRef.current = false;
+    onUpdateProject(nextProject);
+    setRun({ status: "loading" });
+    setRetryKey((key) => key + 1);
+  }
 
   const currentGroup = run.status === "ready" && currentPageTitle !== undefined
     ? getCached(project, stage, currentPageTitle)
@@ -144,21 +155,11 @@ export function PerPageStage({ stage, project, onUpdateProject, onContinue, onBa
   }
 
   if (run.status === "loading") {
-    return (
-      <section className="pp-fade-in flex flex-col items-start gap-3">
-        <span className="pp-step-dot" data-status="current" />
-        <p className="pp-label">convening the council — waves 1 / 2 / 3</p>
-      </section>
-    );
+    return <CouncilLoading wave={project.councilDossier ? "chairman" : "candidates"} />;
   }
 
   if (run.status === "error") {
-    return (
-      <section className="pp-fade-in pp-card flex flex-col gap-3" data-selected="true">
-        <p className="pp-text-primary text-sm font-medium">Generation failed</p>
-        <p className="pp-text-secondary text-sm">{run.message}</p>
-      </section>
-    );
+    return <CouncilErrorCard message={run.message} onRetry={retryWithoutCache} />;
   }
 
   if (!currentGroup || currentPageTitle === undefined) {

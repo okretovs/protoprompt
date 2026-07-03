@@ -25,7 +25,7 @@ export function OptionCard({ option, selected, onToggle, variant = "select" }: O
     <article className="pp-card flex flex-col" data-selected={selected ? "true" : undefined}>
       <div className="flex items-center justify-between gap-3">
         <span className="pp-section-kicker">{RECOMMENDATION_LABEL[option.recommendationState]}</span>
-        {option.extendedFeature && <span className="pp-badge pp-badge-extended">extended feature</span>}
+        {option.extendedFeature && <span className="pp-badge pp-badge-extended">Extended Feature</span>}
       </div>
 
       <h3 className="pp-text-primary mt-3 text-xl font-medium">{option.title}</h3>

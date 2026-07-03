@@ -216,6 +216,21 @@
   background-color: var(--pp-status-done);
 }
 
+.protoprompt-root .pp-signal-dot {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background-color: var(--pp-accent);
+  box-shadow: var(--pp-accent-glow);
+  animation: pp-signal-pulse 1200ms ease-in-out infinite;
+}
+
+.protoprompt-root .pp-error-card {
+  border-color: var(--pp-accent-border);
+  box-shadow: var(--pp-accent-glow), var(--pp-shadow-glass);
+}
+
 .protoprompt-root .pp-divider {
   height: 1px;
   border: 0;
@@ -237,9 +252,22 @@
   }
 }
 
+@keyframes pp-signal-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .protoprompt-root .pp-card,
-  .protoprompt-root .pp-fade-in {
+  .protoprompt-root .pp-fade-in,
+  .protoprompt-root .pp-signal-dot {
     transition: none;
     animation: none;
   }

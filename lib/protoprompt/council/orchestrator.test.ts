@@ -10,6 +10,17 @@ const generateMock = vi.fn();
 
 vi.mock("@/lib/protoprompt/openai-client", () => ({
   openai: { text: { generate: (...args: unknown[]) => generateMock(...args) } },
+  withTransientRetry: async <T>(operation: () => Promise<T>) => {
+    try {
+      return await operation();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/\b(408|409|429|500|502|503|504|rate|timeout|temporar|transient)\b/i.test(message)) {
+        throw error;
+      }
+      return operation();
+    }
+  },
 }));
 
 // Imported after the mock so the orchestrator picks up the mocked boundary.
@@ -102,13 +113,31 @@ describe("runStage — fresh mode", () => {
 
   it("is fatal when a Wave 1 candidate call fails", async () => {
     generateMock.mockImplementation(({ system, prompt }: { system: string; prompt: string }) => {
-      if (system === COUNCIL_MEMBERS.B.basePrompt) return Promise.reject(new Error("transient failure"));
+      if (system === COUNCIL_MEMBERS.B.basePrompt) return Promise.reject(new Error("candidate failed"));
       return defaultGenerateImpl({ system, prompt });
     });
 
     const project = createProjectState("A task app", "Fieldnotes");
 
-    await expect(runStage({ stage: "build_direction", project })).rejects.toThrow("transient failure");
+    await expect(runStage({ stage: "build_direction", project })).rejects.toThrow("candidate failed");
+  });
+
+  it("silently retries one transient OpenAI error", async () => {
+    let failed = false;
+    generateMock.mockImplementation(({ system, prompt }: { system: string; prompt: string }) => {
+      if (!failed && system === COUNCIL_MEMBERS.A.basePrompt) {
+        failed = true;
+        return Promise.reject(new Error("OpenAI request failed (503): transient"));
+      }
+      return defaultGenerateImpl({ system, prompt });
+    });
+
+    const project = createProjectState("A task app", "Fieldnotes");
+
+    const { result } = await runStage({ stage: "build_direction", project });
+
+    expect(result.options).toHaveLength(1);
+    expect(generateMock).toHaveBeenCalledTimes(10);
   });
 
   it("tolerates a Wave 2 reviewer failure and still produces a result", async () => {
