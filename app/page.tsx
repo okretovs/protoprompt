@@ -2,15 +2,44 @@
 
 import { useState } from "react";
 
-import { BuildDirectionStage } from "@/components/protoprompt/build-direction-stage";
 import { IntakeScreen } from "@/components/protoprompt/intake-screen";
+import { MultiSelectStage } from "@/components/protoprompt/multi-select-stage";
 import { Button } from "@/components/ui/button";
+import {
+  MULTI_SELECT_STAGES,
+  nextStage,
+  previousStage,
+} from "@/lib/protoprompt/stage-machine";
 import { createProjectState } from "@/lib/protoprompt/types";
-import type { ProjectState } from "@/lib/protoprompt/types";
+import type { ProjectState, StageId } from "@/lib/protoprompt/types";
 
 export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [project, setProject] = useState<ProjectState | null>(null);
+  const [stage, setStage] = useState<StageId | null>(null);
+
+  function handleUpdateProject(next: ProjectState) {
+    setProject(next);
+  }
+
+  function handleAdvance() {
+    if (!stage) return;
+    const next = nextStage(stage);
+    if (next) setStage(next);
+  }
+
+  function handleRetreat() {
+    if (!stage) return;
+    setStage(previousStage(stage));
+  }
+
+  function handleReset() {
+    setProject(null);
+    setStage(null);
+  }
+
+  const showStage =
+    project !== null && stage !== null && (MULTI_SELECT_STAGES as StageId[]).includes(stage);
 
   return (
     <div
@@ -38,15 +67,36 @@ export default function Home() {
 
         <hr className="pp-divider" />
 
-        {!project && (
-          <IntakeScreen onSubmit={(idea, projectName) => setProject(createProjectState(idea, projectName))} />
+        {!project && <IntakeScreen onSubmit={(idea, projectName) => {
+          const next = createProjectState(idea, projectName);
+          setProject(next);
+          setStage("build_direction");
+        }} />}
+
+        {project && stage && project.councilDossier && (
+          <div className="pp-text-muted pp-mono flex items-center justify-between gap-3 text-xs">
+            <span>dossier mode — later stages reuse the cached council context.</span>
+            <Button size="sm" variant="ppGhost" onClick={handleReset}>
+              New idea
+            </Button>
+          </div>
         )}
 
-        {project && (
-          <BuildDirectionStage
+        {showStage && project && stage && (
+          <MultiSelectStage
+            key={`${stage}::`}
+            stage={stage}
             project={project}
-            onDossier={(dossier) => setProject((current) => (current ? { ...current, councilDossier: dossier } : current))}
+            onUpdateProject={handleUpdateProject}
+            onContinue={handleAdvance}
+            onBack={handleRetreat}
           />
+        )}
+
+        {project && !showStage && (
+          <Button size="sm" variant="ppGhost" onClick={handleReset}>
+            New idea
+          </Button>
         )}
       </main>
     </div>

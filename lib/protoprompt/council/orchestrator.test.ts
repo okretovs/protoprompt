@@ -23,29 +23,52 @@ const REVIEW_JSON = JSON.stringify({
   notes: [{ candidate_ref: "response_a::0", assessment: "Strong fit", keep: true }],
 });
 
-const CHAIRMAN_JSON = JSON.stringify({
-  results: [
-    {
-      stage: "build_direction",
-      options: [
-        {
-          title: "Task capture",
-          description: "Capture tasks quickly",
-          tags: ["core"],
-          recommendation_state: "required",
-          why_it_fits: "Every user needs this",
-          extended_feature: false,
-          selection_state: "selected",
-        },
-      ],
-      assumptions: ["Users create tasks manually"],
-    },
-  ],
-  dossier: { themes: ["capture"], assumptions: ["Users create tasks manually"] },
-});
+function chairmanJsonFor(stage: "build_direction" | "data_sources" | "app_pages", withDossier = false): string {
+  const titles: Record<typeof stage, string> = {
+    build_direction: "Task capture",
+    data_sources: "Manual notes",
+    app_pages: "Dashboard",
+  };
+  const payload: Record<string, unknown> = {
+    results: [
+      {
+        stage,
+        options: [
+          {
+            title: titles[stage],
+            description: "An option for the stage",
+            tags: ["core"],
+            recommendation_state: "recommended",
+            why_it_fits: "It fits well",
+            extended_feature: false,
+            selection_state: "selected",
+          },
+        ],
+        assumptions: ["Users create tasks manually"],
+      },
+    ],
+  };
+  if (withDossier) {
+    payload.dossier = { themes: ["capture"], assumptions: ["Users create tasks manually"] };
+  }
+  return JSON.stringify(payload);
+}
 
-function defaultGenerateImpl({ system }: { system: string }) {
-  if (system === CHAIRMAN_SYSTEM_PROMPT) return Promise.resolve(CHAIRMAN_JSON);
+function stageFromPrompt(prompt: string): "build_direction" | "data_sources" | "app_pages" {
+  const match = prompt.match(/Stage:\s*(\w+)/);
+  if (!match) throw new Error(`Could not extract stage from prompt: ${prompt}`);
+  const stage = match[1];
+  if (stage !== "build_direction" && stage !== "data_sources" && stage !== "app_pages") {
+    throw new Error(`Unsupported stage in test prompt: ${stage}`);
+  }
+  return stage;
+}
+
+function defaultGenerateImpl({ system, prompt }: { system: string; prompt: string }) {
+  if (system === CHAIRMAN_SYSTEM_PROMPT) {
+    const stage = stageFromPrompt(prompt);
+    return Promise.resolve(chairmanJsonFor(stage, stage === "build_direction"));
+  }
   if (Object.values(COUNCIL_MEMBERS).some((member) => member.basePrompt === system)) {
     return Promise.resolve(CANDIDATE_JSON);
   }
@@ -76,9 +99,9 @@ describe("runStage — fresh mode", () => {
   });
 
   it("is fatal when a Wave 1 candidate call fails", async () => {
-    generateMock.mockImplementation(({ system }: { system: string }) => {
+    generateMock.mockImplementation(({ system, prompt }: { system: string; prompt: string }) => {
       if (system === COUNCIL_MEMBERS.B.basePrompt) return Promise.reject(new Error("transient failure"));
-      return defaultGenerateImpl({ system });
+      return defaultGenerateImpl({ system, prompt });
     });
 
     const project = createProjectState("A task app", "Fieldnotes");
@@ -87,9 +110,9 @@ describe("runStage — fresh mode", () => {
   });
 
   it("tolerates a Wave 2 reviewer failure and still produces a result", async () => {
-    generateMock.mockImplementation(({ system }: { system: string }) => {
+    generateMock.mockImplementation(({ system, prompt }: { system: string; prompt: string }) => {
       if (system === COUNCIL_MEMBERS.C.reviewPrompt) return Promise.reject(new Error("reviewer down"));
-      return defaultGenerateImpl({ system });
+      return defaultGenerateImpl({ system, prompt });
     });
 
     const project = createProjectState("A task app", "Fieldnotes");
@@ -101,12 +124,14 @@ describe("runStage — fresh mode", () => {
 
   it("retries the chairman once on a parse failure before giving up", async () => {
     let chairmanCalls = 0;
-    generateMock.mockImplementation(({ system }: { system: string }) => {
+    generateMock.mockImplementation(({ system, prompt }: { system: string; prompt: string }) => {
       if (system === CHAIRMAN_SYSTEM_PROMPT) {
         chairmanCalls += 1;
-        return chairmanCalls === 1 ? Promise.resolve("not json") : Promise.resolve(CHAIRMAN_JSON);
+        return chairmanCalls === 1
+          ? Promise.resolve("not json")
+          : Promise.resolve(chairmanJsonFor(stageFromPrompt(prompt), true));
       }
-      return defaultGenerateImpl({ system });
+      return defaultGenerateImpl({ system, prompt });
     });
 
     const project = createProjectState("A task app", "Fieldnotes");
@@ -125,10 +150,39 @@ describe("runStage — dossier mode", () => {
 
     const { result } = await runStage({ stage: "build_direction", project });
 
+    expect(result.stage).toBe("build_direction");
     expect(result.options).toHaveLength(1);
     expect(generateMock).toHaveBeenCalledTimes(1);
     expect(generateMock).toHaveBeenCalledWith(
       expect.objectContaining({ system: CHAIRMAN_SYSTEM_PROMPT })
     );
+  });
+
+  it.each([
+    ["data_sources"] as const,
+    ["app_pages"] as const,
+  ])("only calls the chairman for %s when a dossier exists", async (stage) => {
+    const project = createProjectState("A task app", "Fieldnotes");
+    project.councilDossier = { themes: ["capture"], assumptions: ["Users create tasks manually"] };
+
+    const { result } = await runStage({ stage, project });
+
+    expect(result.stage).toBe(stage);
+    expect(result.options).toHaveLength(1);
+    expect(generateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["data_sources"] as const,
+    ["app_pages"] as const,
+  ])("runs waves 1-3 in fresh mode for %s when no dossier exists", async (stage) => {
+    const project = createProjectState("A task app", "Fieldnotes");
+
+    const { result } = await runStage({ stage, project });
+
+    expect(result.stage).toBe(stage);
+    expect(result.options).toHaveLength(1);
+    // 4 candidates + 4 reviews + 1 chairman.
+    expect(generateMock).toHaveBeenCalledTimes(9);
   });
 });
