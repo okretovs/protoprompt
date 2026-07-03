@@ -1,28 +1,39 @@
 # Deployment: Vercel
 
-Vercel is the deployment platform for Preview and Production deployments.
+The app is hosted on Vercel and connected to GitHub.
 
 ## Environments
 
 - Development: local development and local env vars.
-- Preview: deployments from PRs and non-production branches.
-- Production: deployments from the production branch, normally `main`.
+- Preview: deployments from pull requests and non-production branches.
+- Production: deployments from the production branch, `main`.
 
 ## Rules
 
-- Use Vercel Preview deployments to verify PRs.
-- Include preview links in PRs and Linear issues for UI/deployment-impacting work.
-- Do not commit deployment secrets.
-- Document required env vars in `.env.example` without values.
-- If a bug appears only on Vercel, compare local env vars, build output, route/runtime differences, and deployment logs.
+- Pull requests should produce Vercel preview deployments.
+- Production deploys happen from `main`.
+- UI or deployment-impacting work should be verified against the Vercel preview URL when possible.
+- Automatically add the preview URL back to the related Linear issue when it helps review or QA.
+- Do not commit deployment secrets. Document required env vars in `.env.example` without values.
 
 ## Verification
 
-Before merging deployment-impacting changes, confirm:
+Before considering an issue ready for review, run the repo's verification commands. Common defaults for a Vercel app are:
 
-```txt
-[ ] Local build passes
-[ ] Vercel Preview deployment succeeds
-[ ] Affected route/page works on the Preview URL
-[ ] Required env vars exist in the target Vercel environment
+```bash
+npm run lint
+npm run test --if-present
+npm run build
 ```
+
+The app is not scaffolded yet, so these are aspirational until real scripts exist. Use the commands actually defined by the repo. If a command is missing, do not invent it; report what was available and what was skipped.
+
+## Environment-sensitive work
+
+When a bug appears only after deployment, compare local behaviour with the Vercel preview or production deployment, including:
+
+- environment variables and runtime configuration
+- build output
+- serverless/edge runtime differences
+- route handling and rewrites
+- logs available from Vercel or the app

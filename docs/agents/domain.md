@@ -1,22 +1,31 @@
-# Domain documentation
+# Domain docs
 
-Use this file to guide project vocabulary, domain decisions, and architecture records.
+These engineering skills use domain docs to preserve project language, decisions, and constraints across sessions.
 
-## Files
+## Layout
 
-- `CONTEXT.md` — project-wide context and domain vocabulary.
-- `docs/adr/` — architecture decision records.
-- Feature-local `CONTEXT.md` files may be added when a feature area becomes complex.
+This repo uses a single-context layout:
 
-## Rules
+```text
+CONTEXT.md
+docs/adr/
+```
 
+Use `CONTEXT.md` for the project glossary, domain concepts, invariants, and workflow notes. Use `docs/adr/` for architectural decisions.
+
+If the repo grows into multiple distinct domains, add `CONTEXT-MAP.md` at the root pointing to each domain-specific `CONTEXT.md` and ADR directory.
+
+## Consumer rules
+
+- Read `CONTEXT.md` before designing, diagnosing, testing, or implementing domain-sensitive work.
+- Read relevant ADRs before changing architecture or established module boundaries.
 - Add domain terms only when they are real product concepts.
-- Record decisions that affect future implementation choices.
-- Prefer short ADRs over long essays.
+- Record decisions that affect future implementation choices; prefer short ADRs over long essays.
 - When a term is ambiguous, ask focused clarification questions.
+- Update docs as decisions land; do not leave important domain knowledge only in chat.
 
 ## ADR naming
 
-```txt
+```text
 docs/adr/0001-short-title.md
 ```
