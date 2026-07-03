@@ -11,6 +11,28 @@ This repository is a Vercel-hosted app managed with Factory, Linear, GitHub, and
 
 Do not create GitHub Issues unless explicitly asked. Planned work belongs in Linear.
 
+## Agent skills
+
+### Issue tracker
+
+Issues, PRDs, triage states, and implementation tickets live in Linear via MCP. Do not create GitHub Issues unless explicitly asked. See `docs/agents/issue-tracker.md`.
+
+### Source control
+
+Source control lives in GitHub. Implementation happens on branches submitted via pull requests linked to the relevant Linear issue. See `docs/agents/source-control.md`.
+
+### Deployment
+
+The app is hosted on Vercel. Pull requests produce preview deployments, and production deploys happen from `main`. See `docs/agents/deployment.md`.
+
+### Triage roles
+
+Linear statuses map to the canonical triage roles in `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use `CONTEXT.md` and `docs/adr/` for project language and architectural decisions. See `docs/agents/domain.md`.
+
 ## Required workflow
 
 For implementation work:

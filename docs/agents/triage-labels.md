@@ -1,31 +1,23 @@
-# Triage statuses and labels
+# Triage roles
 
-Linear statuses/labels should map to these roles. Use the exact names your workspace configures.
+The ProtoPrompt Linear team models triage roles as workflow **statuses**. Use these exact status names.
 
-| Canonical role | Suggested Linear status/label | Meaning |
+| Canonical role | Linear status | Status type |
 |---|---|---|
-| `needs-triage` | `Triage` | Needs evaluation and routing. |
-| `needs-info` | `Needs Info` | Waiting on clarification. |
-| `ready-for-droid` | `Ready for Droid` | Clear enough for Factory Droid to implement. |
-| `ready-for-human` | `Ready for Human` | Needs human judgment or manual action. |
-| `in-progress` | `In Progress` | Currently being worked. |
-| `in-review` | `In Review` | PR/review/preview verification in progress. |
-| `done` | `Done` | Completed and verified. |
-| `wontfix` | `Won't Fix` | Explicitly not planned. |
+| `needs-triage` | Triage | backlog |
+| `needs-info` | Needs Info | backlog |
+| `ready-for-droid` | Ready for Droid | unstarted |
+| `ready-for-human` | Ready for Human | unstarted |
+| `in-progress` | In Progress | started |
+| `in-review` | In Review | started |
+| `done` | Done | completed |
+| `wontfix` | Won't Fix | canceled |
+| `duplicate` | Duplicate | duplicate |
 
-Labels can supplement statuses:
+When a skill mentions a canonical role, use the corresponding Linear status from this table. Do not create duplicate statuses with similar names without asking.
 
-```txt
-bug
-feature
-docs
-refactor
-chore
-security
-performance
-ui
-backend
-needs-design
-needs-product
-blocked
-```
+## Notes
+
+- `ready-for-droid` marks issues that are fully specified and ready for Factory Droid implementation.
+- `ready-for-human` marks issues that need human implementation or judgment.
+- If you need to categorize work by type (bug, feature, docs, refactor, chore, security, performance, ui, backend), use Linear labels to supplement statuses. Confirm the label exists before creating a new one.
