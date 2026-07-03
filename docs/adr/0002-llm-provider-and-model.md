@@ -13,9 +13,10 @@ Every stage runs multiple council calls (candidates, reviews, chairman synthesis
 Use **OpenAI as the sole LLM provider**, model **gpt-5 mini** (quickest available gpt-5 model), via the OpenAI API resource clients exposed as globals:
 
 - Council pipeline (Waves 1–3) uses **buffered** `openai.text.generate`.
-  - Candidates and reviews: temperature `0.4`, persona `basePrompt` / `reviewPrompt` as system message.
-  - Chairman: temperature `0.4`, `CHAIRMAN_SYSTEM_PROMPT` as system message.
-- Final prompt uses **streaming** `openai.text.generateStreamRaw` (returned directly, no await/reshape), temperature `0.3`, with a strict markdown-only chairman system prompt. For Day 0, the output must be directly usable in a vibe-coding tool, not merely section-complete.
+  - Candidates and reviews: persona `basePrompt` / `reviewPrompt` as system message.
+  - Chairman: `CHAIRMAN_SYSTEM_PROMPT` as system message.
+- Final prompt uses **streaming** `openai.text.generateStreamRaw` (returned directly, no await/reshape), with a strict markdown-only chairman system prompt. For Day 0, the output must be directly usable in a vibe-coding tool, not merely section-complete.
+- Do not send `temperature` for `gpt-5-mini`; the model only supports the API default.
 - Day 0 requires a user-provided OpenAI API key before idea submission, saved in browser `localStorage`, while still supporting the server-side `OPENAI_API_KEY`. This keeps the complete 7-stage flow demoable when server configuration is missing.
 
 ## Consequences

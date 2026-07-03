@@ -17,7 +17,7 @@ export interface GenerateParams {
 
 export type StreamParams = GenerateParams;
 
-async function generate({ system, prompt, temperature, apiKey: providedApiKey }: GenerateParams): Promise<string> {
+async function generate({ system, prompt, apiKey: providedApiKey }: GenerateParams): Promise<string> {
   const apiKey = resolveApiKey(providedApiKey);
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not set");
@@ -31,7 +31,6 @@ async function generate({ system, prompt, temperature, apiKey: providedApiKey }:
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      temperature,
       messages: [
         { role: "system", content: system },
         { role: "user", content: prompt },
@@ -56,7 +55,6 @@ async function generate({ system, prompt, temperature, apiKey: providedApiKey }:
 async function generateStreamRaw({
   system,
   prompt,
-  temperature,
   apiKey: providedApiKey,
 }: StreamParams): Promise<ReadableStream<Uint8Array>> {
   const apiKey = resolveApiKey(providedApiKey);
@@ -72,7 +70,6 @@ async function generateStreamRaw({
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      temperature,
       stream: true,
       messages: [
         { role: "system", content: system },
