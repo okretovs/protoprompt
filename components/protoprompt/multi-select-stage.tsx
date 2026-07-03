@@ -15,6 +15,7 @@ import {
 } from "@/lib/protoprompt/cached-options";
 import { persistDefaultSelection, seedDefaultSelection } from "@/lib/protoprompt/selection";
 import { backLabel, canGoBack as canGoBackFor, continueLabel } from "@/lib/protoprompt/stage-machine";
+import { TESTING_DOSSIER, mockStageResult } from "@/lib/protoprompt/testing-flow";
 import type {
   CouncilDossier,
   ProjectState,
@@ -26,6 +27,7 @@ interface MultiSelectStageProps {
   stage: StageId;
   project: ProjectState;
   openAIKey: string;
+  testingMode?: boolean;
   onUpdateProject: (next: ProjectState) => void;
   onContinue: () => void;
   onBack: () => void;
@@ -50,6 +52,7 @@ export function MultiSelectStage({
   stage,
   project,
   openAIKey,
+  testingMode = false,
   onUpdateProject,
   onContinue,
   onBack,
@@ -77,19 +80,10 @@ export function MultiSelectStage({
 
     async function load() {
       try {
-        const response = await fetch("/api/council/stage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage, project, openAIKey }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error ?? "Council run failed");
-        }
+        const { result, dossier } = testingMode
+          ? { result: mockStageResult(stage), dossier: TESTING_DOSSIER }
+          : await fetchStageResult(stage, project, openAIKey);
         if (cancelled) return;
-
-        const result = data.result as StageOptionsResult;
-        const dossier = data.dossier as CouncilDossier | undefined;
 
         let nextProject = setCached(project, stage, undefined, result);
         if (dossier) {
@@ -116,7 +110,7 @@ export function MultiSelectStage({
     return () => {
       cancelled = true;
     };
-  }, [stage, project, openAIKey, onUpdateProject]);
+  }, [stage, project, openAIKey, testingMode, onUpdateProject]);
 
   function retryWithoutCache() {
     const nextProject = clearGeneratedCouncilState(project);
@@ -183,4 +177,21 @@ export function MultiSelectStage({
       </div>
     </section>
   );
+}
+
+async function fetchStageResult(
+  stage: StageId,
+  project: ProjectState,
+  openAIKey: string
+): Promise<{ result: StageOptionsResult; dossier?: CouncilDossier }> {
+  const response = await fetch("/api/council/stage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stage, project, openAIKey }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error ?? "Council run failed");
+  }
+  return { result: data.result as StageOptionsResult, dossier: data.dossier as CouncilDossier | undefined };
 }
