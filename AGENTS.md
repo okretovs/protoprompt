@@ -79,3 +79,23 @@ Use:
 - Never put API keys, tokens, OAuth credentials, database URLs, or private env values in AGENTS.md, docs, rules, skills, or git history.
 - Use `.env.local` locally and Vercel Environment Variables for deployments.
 - Keep `.env.example` as documentation only.
+
+## Memory and preferences
+
+Droid should use these context files when relevant:
+
+- `/Users/olliekretovs/Documents/Memories/memories.md` for personal preferences that apply across projects.
+- `.factory/memories.md` for project-specific memories shared through the repo.
+- `CONTEXT.md` for durable product, domain, and architecture context.
+
+Do not store secrets in memory files.
+
+## Coding standards
+
+Follow the conventions documented in:
+
+- `.factory/rules/typescript.md`
+- `.factory/rules/testing.md`
+- `.factory/rules/security.md`
+
+If a rule conflicts with the codebase, prefer the codebase convention and update the rule only with explicit approval.
