@@ -7,6 +7,7 @@ import { OptionCard } from "@/components/protoprompt/option-card";
 import { Button } from "@/components/ui/button";
 import {
   appendAssumptions,
+  cacheKey,
   getCached,
   setCached,
 } from "@/lib/protoprompt/cached-options";
@@ -43,7 +44,7 @@ const SECTION_KICKER: Record<StageId, string> = {
 };
 
 export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, onBack }: MultiSelectStageProps) {
-  const persistedSelection = project.selections[stage];
+  const persistedSelection = project.selections[cacheKey(stage)];
 
   const [run, setRun] = useState<RunState>(() => {
     const cached = getCached(project, stage);
@@ -87,7 +88,7 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
         nextProject = appendAssumptions(nextProject, result.assumptions);
         onUpdateProject(nextProject);
 
-        const persistedAfter = nextProject.selections[stage];
+        const persistedAfter = nextProject.selections[cacheKey(stage)];
         setRun({ status: "ready", result });
         setSelectedIds(
           seedDefaultSelection(
@@ -118,7 +119,7 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
         : [...current, id];
       onUpdateProject({
         ...project,
-        selections: { ...project.selections, [stage]: next },
+        selections: { ...project.selections, [cacheKey(stage)]: next },
       });
       return next;
     });

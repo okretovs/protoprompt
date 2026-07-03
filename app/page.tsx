@@ -4,9 +4,11 @@ import { useState } from "react";
 
 import { IntakeScreen } from "@/components/protoprompt/intake-screen";
 import { MultiSelectStage } from "@/components/protoprompt/multi-select-stage";
+import { PerPageStage } from "@/components/protoprompt/per-page-stage";
 import { Button } from "@/components/ui/button";
 import {
   MULTI_SELECT_STAGES,
+  isPerPageStage,
   nextStage,
   previousStage,
 } from "@/lib/protoprompt/stage-machine";
@@ -38,8 +40,11 @@ export default function Home() {
     setStage(null);
   }
 
-  const showStage =
+  const showMultiSelectStage =
     project !== null && stage !== null && (MULTI_SELECT_STAGES as StageId[]).includes(stage);
+  const showPerPageStage =
+    project !== null && stage !== null && isPerPageStage(stage);
+  const showStage = showMultiSelectStage || showPerPageStage;
 
   return (
     <div
@@ -82,10 +87,21 @@ export default function Home() {
           </div>
         )}
 
-        {showStage && project && stage && (
+        {showStage && project && stage && showMultiSelectStage && (
           <MultiSelectStage
             key={`${stage}::`}
             stage={stage}
+            project={project}
+            onUpdateProject={handleUpdateProject}
+            onContinue={handleAdvance}
+            onBack={handleRetreat}
+          />
+        )}
+
+        {showStage && project && stage && showPerPageStage && (
+          <PerPageStage
+            key={`${stage}::per-page`}
+            stage={stage as "components" | "mockup_style"}
             project={project}
             onUpdateProject={handleUpdateProject}
             onContinue={handleAdvance}

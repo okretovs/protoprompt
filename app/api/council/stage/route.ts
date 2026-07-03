@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { runStage } from "@/lib/protoprompt/council/orchestrator";
+import { runGroupedStage, runStage } from "@/lib/protoprompt/council/orchestrator";
+import { isPerPageStage } from "@/lib/protoprompt/stage-machine";
 import type { ProjectState, StageId } from "@/lib/protoprompt/types";
 
-const SUPPORTED_STAGES: StageId[] = ["build_direction", "data_sources", "app_pages"];
+const FLAT_STAGES: StageId[] = ["build_direction", "data_sources", "app_pages"];
+const GROUPED_STAGES: StageId[] = ["components", "mockup_style"];
+const SUPPORTED_STAGES: StageId[] = [...FLAT_STAGES, ...GROUPED_STAGES];
 
 interface RunStageRequestBody {
   stage?: unknown;
@@ -22,8 +25,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Unsupported stage: ${stage}` }, { status: 400 });
   }
 
+  const project = body.project as ProjectState;
+
   try {
-    const { result, dossier } = await runStage({ stage, project: body.project as ProjectState });
+    if (isPerPageStage(stage)) {
+      const { pageGroups, dossier } = await runGroupedStage({ stage, project });
+      return NextResponse.json({ pageGroups, dossier });
+    }
+    const { result, dossier } = await runStage({ stage, project });
     return NextResponse.json({ result, dossier });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Council run failed";
