@@ -1,5 +1,5 @@
 import { selectedPageTitles } from "@/lib/protoprompt/pages";
-import { openai } from "@/lib/protoprompt/openai-client";
+import { openai, withTransientRetry } from "@/lib/protoprompt/openai-client";
 import { downgradeRequiredOptions, downgradeRequiredOptionsInGroup } from "@/lib/protoprompt/selection";
 import type {
   CouncilCandidateResult,
@@ -37,7 +37,9 @@ export async function runCouncilMember(
 ): Promise<CouncilCandidateResult> {
   const persona = COUNCIL_MEMBERS[member];
   const prompt = buildCandidatePrompt(stage, project, pages);
-  const raw = await openai.text.generate({ system: persona.basePrompt, prompt, temperature: CANDIDATE_TEMPERATURE });
+  const raw = await withTransientRetry(() =>
+    openai.text.generate({ system: persona.basePrompt, prompt, temperature: CANDIDATE_TEMPERATURE })
+  );
   return parseCouncilCandidateResponse(member, raw);
 }
 
@@ -49,7 +51,9 @@ export async function reviewByMember(
 ): Promise<CouncilReviewResult> {
   const persona = COUNCIL_MEMBERS[member];
   const prompt = buildReviewPrompt(stage, anonymized);
-  const raw = await openai.text.generate({ system: persona.reviewPrompt, prompt, temperature: REVIEW_TEMPERATURE });
+  const raw = await withTransientRetry(() =>
+    openai.text.generate({ system: persona.reviewPrompt, prompt, temperature: REVIEW_TEMPERATURE })
+  );
   return parseCouncilReviewResponse(member, raw);
 }
 
@@ -103,11 +107,13 @@ export async function runChairman(params: RunChairmanParams): Promise<ChairmanRe
 
 async function runChairmanOnce({ mode, stage, project, candidates, reviews }: RunChairmanParams): Promise<ChairmanResult> {
   const prompt = buildChairmanPrompt({ mode, stage, project, candidates, reviews });
-  const raw = await openai.text.generate({
-    system: CHAIRMAN_SYSTEM_PROMPT,
-    prompt,
-    temperature: CHAIRMAN_TEMPERATURE,
-  });
+  const raw = await withTransientRetry(() =>
+    openai.text.generate({
+      system: CHAIRMAN_SYSTEM_PROMPT,
+      prompt,
+      temperature: CHAIRMAN_TEMPERATURE,
+    })
+  );
   const parsed = parseChairmanResponse(stage, raw);
   const stageResult = parsed.results.find((entry) => entry.stage === stage) ?? parsed.results[0];
   if (!stageResult) {
@@ -169,11 +175,13 @@ async function runGroupedChairmanOnce({
   pages,
 }: RunGroupedChairmanParams): Promise<GroupedChairmanResult> {
   const prompt = buildGroupedChairmanPrompt({ mode, stage, project, candidates, reviews, pages });
-  const raw = await openai.text.generate({
-    system: chairmanSystemPromptFor(stage),
-    prompt,
-    temperature: CHAIRMAN_TEMPERATURE,
-  });
+  const raw = await withTransientRetry(() =>
+    openai.text.generate({
+      system: chairmanSystemPromptFor(stage),
+      prompt,
+      temperature: CHAIRMAN_TEMPERATURE,
+    })
+  );
   const parsed = parseGroupedStageResponse(stage, raw);
   return { pageGroups: parsed.pageGroups.map(downgradeRequiredOptionsInGroup), dossier: parsed.dossier };
 }

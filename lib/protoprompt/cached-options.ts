@@ -41,6 +41,17 @@ export function setCached(
   };
 }
 
+/** Returns a project with generated council context cleared for a fresh run. */
+export function clearGeneratedCouncilState(project: ProjectState): ProjectState {
+  const rest = { ...project };
+  delete rest.councilDossier;
+  return {
+    ...rest,
+    cachedOptions: {},
+    councilAssumptions: [],
+  };
+}
+
 /**
  * Returns a new `ProjectState` with `assumptions` appended to
  * `councilAssumptions`, preserving the original order and deduplicating

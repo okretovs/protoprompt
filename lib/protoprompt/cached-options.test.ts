@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appendAssumptions, cacheKey, getCached, setCached } from "./cached-options";
+import { appendAssumptions, cacheKey, clearGeneratedCouncilState, getCached, setCached } from "./cached-options";
 import { createProjectState } from "./types";
 import type { StageOptionsResult } from "./types";
 
@@ -86,5 +86,25 @@ describe("appendAssumptions", () => {
     const updated = appendAssumptions(project, []);
 
     expect(updated).toBe(project);
+  });
+});
+
+describe("clearGeneratedCouncilState", () => {
+  it("clears cached options, dossier, and assumptions while preserving run inputs and selections", () => {
+    const project = {
+      ...setCached(createProjectState("idea", "Fieldnotes"), "build_direction", undefined, makeResult("build_direction", 0)),
+      councilDossier: { themes: ["capture"], assumptions: ["manual entry"] },
+      councilAssumptions: ["manual entry"],
+      selections: { [cacheKey("build_direction")]: ["build_direction-0-option-0"] },
+    };
+
+    const cleared = clearGeneratedCouncilState(project);
+
+    expect(cleared.cachedOptions).toEqual({});
+    expect(cleared.councilDossier).toBeUndefined();
+    expect(cleared.councilAssumptions).toEqual([]);
+    expect(cleared.idea).toBe("idea");
+    expect(cleared.projectName).toBe("Fieldnotes");
+    expect(cleared.selections).toEqual(project.selections);
   });
 });

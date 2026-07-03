@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { AssumptionsSummary } from "@/components/protoprompt/assumptions-summary";
+import { CouncilErrorCard, CouncilLoading } from "@/components/protoprompt/council-status";
 import { OptionCard } from "@/components/protoprompt/option-card";
 import { Button } from "@/components/ui/button";
 import {
   appendAssumptions,
   cacheKey,
+  clearGeneratedCouncilState,
   getCached,
   setCached,
 } from "@/lib/protoprompt/cached-options";
@@ -58,6 +60,7 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
       Boolean(persistedSelection?.length)
     );
   });
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     const cached = getCached(project, stage);
@@ -110,7 +113,15 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
     return () => {
       cancelled = true;
     };
-  }, [stage, project, onUpdateProject]);
+  }, [stage, project, onUpdateProject, retryKey]);
+
+  function retryWithoutCache() {
+    const nextProject = clearGeneratedCouncilState(project);
+    onUpdateProject(nextProject);
+    setRun({ status: "loading" });
+    setSelectedIds([]);
+    setRetryKey((key) => key + 1);
+  }
 
   function toggleOption(id: string) {
     setSelectedIds((current) => {
@@ -126,21 +137,11 @@ export function MultiSelectStage({ stage, project, onUpdateProject, onContinue, 
   }
 
   if (run.status === "loading") {
-    return (
-      <section className="pp-fade-in flex flex-col items-start gap-3">
-        <span className="pp-step-dot" data-status="current" />
-        <p className="pp-label">convening the council — waves 1 / 2 / 3</p>
-      </section>
-    );
+    return <CouncilLoading wave={project.councilDossier ? "chairman" : "candidates"} />;
   }
 
   if (run.status === "error") {
-    return (
-      <section className="pp-fade-in pp-card flex flex-col gap-3" data-selected="true">
-        <p className="pp-text-primary text-sm font-medium">Generation failed</p>
-        <p className="pp-text-secondary text-sm">{run.message}</p>
-      </section>
-    );
+    return <CouncilErrorCard message={run.message} onRetry={retryWithoutCache} />;
   }
 
   return (

@@ -3,9 +3,11 @@
 import { useState } from "react";
 
 import { IntakeScreen } from "@/components/protoprompt/intake-screen";
+import { FinalPromptStage } from "@/components/protoprompt/final-prompt-stage";
 import { MultiSelectStage } from "@/components/protoprompt/multi-select-stage";
 import { PerPageStage } from "@/components/protoprompt/per-page-stage";
 import { Button } from "@/components/ui/button";
+import { clearGeneratedCouncilState } from "@/lib/protoprompt/cached-options";
 import {
   MULTI_SELECT_STAGES,
   isPerPageStage,
@@ -13,7 +15,7 @@ import {
   previousStage,
 } from "@/lib/protoprompt/stage-machine";
 import { createProjectState } from "@/lib/protoprompt/types";
-import type { ProjectState, StageId } from "@/lib/protoprompt/types";
+import type { ProjectState, ScopeMode, StageId } from "@/lib/protoprompt/types";
 
 export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -38,6 +40,11 @@ export default function Home() {
   function handleReset() {
     setProject(null);
     setStage(null);
+  }
+
+  function handleScopeChange(scopeMode: ScopeMode) {
+    if (!project || project.scopeMode === scopeMode) return;
+    setProject({ ...clearGeneratedCouncilState(project), scopeMode });
   }
 
   const showMultiSelectStage =
@@ -87,9 +94,36 @@ export default function Home() {
           </div>
         )}
 
+        {project && stage && (
+          <section className="pp-glass flex flex-col gap-3 rounded-[var(--pp-radius)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="pp-label">scope mode</p>
+              <p className="pp-text-muted mt-1 text-xs">
+                Changing scope clears cached options and dossier, then regenerates this stage.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={project.scopeMode === "enriched" ? "pp" : "ppGhost"}
+                onClick={() => handleScopeChange("enriched")}
+              >
+                Enriched Building
+              </Button>
+              <Button
+                size="sm"
+                variant={project.scopeMode === "original" ? "pp" : "ppGhost"}
+                onClick={() => handleScopeChange("original")}
+              >
+                Original Scope
+              </Button>
+            </div>
+          </section>
+        )}
+
         {showStage && project && stage && showMultiSelectStage && (
           <MultiSelectStage
-            key={`${stage}::`}
+            key={`${stage}::${project.scopeMode}`}
             stage={stage}
             project={project}
             onUpdateProject={handleUpdateProject}
@@ -100,7 +134,7 @@ export default function Home() {
 
         {showStage && project && stage && showPerPageStage && (
           <PerPageStage
-            key={`${stage}::per-page`}
+            key={`${stage}::per-page::${project.scopeMode}`}
             stage={stage as "components" | "mockup_style"}
             project={project}
             onUpdateProject={handleUpdateProject}
@@ -109,11 +143,7 @@ export default function Home() {
           />
         )}
 
-        {project && !showStage && (
-          <Button size="sm" variant="ppGhost" onClick={handleReset}>
-            New idea
-          </Button>
-        )}
+        {project && !showStage && stage === null && <FinalPromptStage project={project} />}
       </main>
     </div>
   );
