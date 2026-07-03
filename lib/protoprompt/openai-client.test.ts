@@ -30,4 +30,21 @@ describe("openai client key handling", () => {
       })
     );
   });
+
+  it("omits temperature because gpt-5 mini only accepts the default", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: "ok" } }],
+    })));
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    await openai.text.generate({
+      system: "system",
+      prompt: "prompt",
+      temperature: 0.4,
+      apiKey: "sk-user",
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty("temperature");
+  });
 });
