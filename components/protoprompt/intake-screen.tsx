@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { isOpenAIKeyReady, shouldHideSubmittedKey } from "@/lib/protoprompt/openai-key";
+import { isOpenAIKeyReady, readStoredOpenAIKey, saveStoredOpenAIKey, shouldHideSubmittedKey } from "@/lib/protoprompt/openai-key";
 
 interface IntakeScreenProps {
   onSubmit: (idea: string, projectName: string, openAIKey: string) => void;
@@ -12,7 +12,9 @@ interface IntakeScreenProps {
 export function IntakeScreen({ onSubmit }: IntakeScreenProps) {
   const [idea, setIdea] = useState("");
   const [projectName, setProjectName] = useState("");
-  const [openAIKey, setOpenAIKey] = useState("");
+  const [openAIKey, setOpenAIKey] = useState(() =>
+    typeof window === "undefined" ? "" : readStoredOpenAIKey(window.localStorage)
+  );
   const [submittedKey, setSubmittedKey] = useState(false);
 
   const canConvene = idea.trim().length > 0 && projectName.trim().length > 0 && isOpenAIKeyReady(openAIKey);
@@ -20,13 +22,13 @@ export function IntakeScreen({ onSubmit }: IntakeScreenProps) {
   function handleConvene() {
     if (!canConvene) return;
     setSubmittedKey(true);
-    onSubmit(idea.trim(), projectName.trim(), openAIKey.trim());
+    onSubmit(idea.trim(), projectName.trim(), saveStoredOpenAIKey(window.localStorage, openAIKey));
   }
 
   function handleNewIdea() {
     setIdea("");
     setProjectName("");
-    setOpenAIKey("");
+    setOpenAIKey(saveStoredOpenAIKey(window.localStorage, ""));
     setSubmittedKey(false);
   }
 
@@ -53,7 +55,7 @@ export function IntakeScreen({ onSubmit }: IntakeScreenProps) {
           className="pp-mono rounded-[var(--pp-radius-sm)] border border-[var(--pp-border-hairline)] bg-[var(--pp-glass)] px-3 py-2 text-sm text-[var(--pp-text-primary)] outline-none placeholder:text-[var(--pp-text-muted)] focus-visible:border-[var(--pp-border-strong)]"
         />
         <p className="pp-text-muted text-xs">
-          Required for Day 0. Kept in memory only; never saved to browser storage.
+          Required for Day 0. Saved in this browser so the full flow can recover from missing server configuration.
         </p>
       </div>
 

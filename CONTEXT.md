@@ -25,7 +25,7 @@ Product-minded builders and internal-tools engineers using vibe-coding tools who
 - UI: Tailwind CSS + shadcn/ui, with a component-scoped `--pp-*` token layer under `.protoprompt-root`
 - Runtime: Next.js API routes on Vercel; streaming responses for the final prompt only
 - LLM: OpenAI (gpt-5 mini); buffered `.generate` for the council pipeline, `generateStreamRaw` for the final prompt
-- OpenAI key handling: server `OPENAI_API_KEY` remains supported; the Day 0 UI must require a user-provided OpenAI key before idea submission. The key is kept in memory only, so missing server configuration does not block the full flow.
+- OpenAI key handling: server `OPENAI_API_KEY` remains supported; the Day 0 UI must require a user-provided OpenAI key before idea submission. The key is saved in browser `localStorage`, so missing server configuration does not block the full flow.
 - Data store: none in MVP (stateless, all state client-side)
 - Auth provider: none in MVP
 - Hosting: Vercel
@@ -94,7 +94,7 @@ Changing scope wipes `cached_options` and `council_dossier`, then re-runs the cu
 | `council_assumptions` | Deduplicated assumptions surfaced to the user | Appended per run |
 | Scope mode | Enriched Building (default) vs Original Scope | Change wipes cache + dossier |
 | `extended_feature` | Adjacent capability beyond the raw idea | Violet "Extended Feature" badge |
-| User OpenAI key | A user-entered API key used for the current run when needed | Required before idea submit; memory-only; never persisted; hide the masked value after submission |
+| User OpenAI key | A user-entered API key used for the current run when needed | Required before idea submit; saved in browser `localStorage`; hidden after submission |
 | `build_direction` | Stage 2 core-functionality selections | Multi-select |
 | OptionCard | Core UI primitive for a curated option | Multi-select / radio / mockup variants |
 | Recommendation state | Recommended / Optional / Deferred | Never Required (downgraded to Recommended) |
@@ -121,7 +121,7 @@ Day 0 final-prompt acceptance requires the streamed brief to be directly usable 
 - Vercel Preview deployments are the primary UI/deployment verification surface.
 - MVP is stateless: no database, no auth.
 - OpenAI is the sole LLM provider (gpt-5 mini).
-- User-provided OpenAI keys are allowed for Day 0 resilience, but must remain in memory only and must not be stored in localStorage/sessionStorage, docs, logs, commits, or backend persistence.
+- User-provided OpenAI keys are allowed for Day 0 resilience and are saved in browser `localStorage`; they must not be logged, committed, written to docs, or persisted on the backend.
 - Cards over forms: the user selects rather than writes. Options are never marked Required.
 - Within a run, back/forward navigation must preserve all prior selections and use cached stage options where available.
 - Orange is a signal color, not decoration. Avoid generic SaaS and AI-cliché visuals.
