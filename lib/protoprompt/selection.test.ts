@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { downgradeRequiredOptions, seedDefaultSelection } from "./selection";
+import { cacheKey } from "./cached-options";
+import { createProjectState } from "./types";
+import { downgradeRequiredOptions, persistDefaultSelection, seedDefaultSelection } from "./selection";
 import type { ModelStageOptionsResult } from "./selection";
 import type { StageOption } from "./types";
+
+const options: StageOption[] = [
+  makeOption({ id: "a", selectionState: "selected" }),
+  makeOption({ id: "b", selectionState: "unselected" }),
+  makeOption({ id: "c", selectionState: "selected" }),
+];
 
 describe("downgradeRequiredOptions", () => {
   it("downgrades required to recommended and leaves other states untouched", () => {
@@ -23,12 +31,6 @@ describe("downgradeRequiredOptions", () => {
 });
 
 describe("seedDefaultSelection", () => {
-  const options: StageOption[] = [
-    makeOption({ id: "a", selectionState: "selected" }),
-    makeOption({ id: "b", selectionState: "unselected" }),
-    makeOption({ id: "c", selectionState: "selected" }),
-  ];
-
   it("seeds from chairman-selected options when the user hasn't chosen yet", () => {
     expect(seedDefaultSelection(options, undefined, false)).toEqual(["a", "c"]);
   });
@@ -39,6 +41,29 @@ describe("seedDefaultSelection", () => {
 
   it("respects an explicit empty selection made by the user", () => {
     expect(seedDefaultSelection(options, [], true)).toEqual([]);
+  });
+});
+
+describe("persistDefaultSelection", () => {
+  it("stores chairman-selected defaults so later stages can derive selected pages", () => {
+    const project = createProjectState("idea", "Fieldnotes");
+
+    const result = persistDefaultSelection(project, "app_pages", options);
+
+    expect(result.selectedIds).toEqual(["a", "c"]);
+    expect(result.project.selections[cacheKey("app_pages")]).toEqual(["a", "c"]);
+  });
+
+  it("does not overwrite an existing user selection", () => {
+    const project = {
+      ...createProjectState("idea", "Fieldnotes"),
+      selections: { [cacheKey("app_pages")]: ["b"] },
+    };
+
+    const result = persistDefaultSelection(project, "app_pages", options);
+
+    expect(result.selectedIds).toEqual(["b"]);
+    expect(result.project.selections[cacheKey("app_pages")]).toEqual(["b"]);
   });
 });
 

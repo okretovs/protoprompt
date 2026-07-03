@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { cacheKey, setCached } from "./cached-options";
 import { selectedPageTitles } from "./pages";
+import { persistDefaultSelection } from "./selection";
 import { createProjectState } from "./types";
 import type { StageOption, StageOptionsResult } from "./types";
 
@@ -59,5 +60,20 @@ describe("selectedPageTitles", () => {
     };
 
     expect(selectedPageTitles(project)).toEqual(["Settings"]);
+  });
+
+  it("resolves chairman-selected default pages after defaults are persisted", () => {
+    let project = createProjectState("idea", "Fieldnotes");
+    const result = {
+      ...seedAppPages(),
+      options: [
+        { ...makePageOption("app_pages-0-dashboard", "Dashboard"), selectionState: "selected" as const },
+        { ...makePageOption("app_pages-1-settings", "Settings"), selectionState: "unselected" as const },
+      ],
+    };
+    project = setCached(project, "app_pages", undefined, result);
+    project = persistDefaultSelection(project, "app_pages", result.options).project;
+
+    expect(selectedPageTitles(project)).toEqual(["Dashboard"]);
   });
 });

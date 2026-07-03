@@ -13,7 +13,7 @@ import {
   getCached,
   setCached,
 } from "@/lib/protoprompt/cached-options";
-import { seedDefaultSelection } from "@/lib/protoprompt/selection";
+import { persistDefaultSelection, seedDefaultSelection } from "@/lib/protoprompt/selection";
 import { backLabel, canGoBack as canGoBackFor, continueLabel } from "@/lib/protoprompt/stage-machine";
 import type {
   CouncilDossier,
@@ -96,17 +96,13 @@ export function MultiSelectStage({
           nextProject = { ...nextProject, councilDossier: dossier };
         }
         nextProject = appendAssumptions(nextProject, result.assumptions);
+
+        const defaulted = persistDefaultSelection(nextProject, stage, result.options);
+        nextProject = defaulted.project;
         onUpdateProject(nextProject);
 
-        const persistedAfter = nextProject.selections[cacheKey(stage)];
         setRun({ status: "ready", result });
-        setSelectedIds(
-          seedDefaultSelection(
-            result.options,
-            persistedAfter,
-            Boolean(persistedAfter?.length)
-          )
-        );
+        setSelectedIds(defaulted.selectedIds);
       } catch (error) {
         if (cancelled) return;
         setRun({
