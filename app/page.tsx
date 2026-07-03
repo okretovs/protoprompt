@@ -8,11 +8,11 @@ import { MultiSelectStage } from "@/components/protoprompt/multi-select-stage";
 import { PerPageStage } from "@/components/protoprompt/per-page-stage";
 import { Button } from "@/components/ui/button";
 import { clearGeneratedCouncilState } from "@/lib/protoprompt/cached-options";
+import { advanceStage } from "@/lib/protoprompt/flow-navigation";
 import { readStoredOpenAIKey, saveStoredOpenAIKey } from "@/lib/protoprompt/openai-key";
 import {
   MULTI_SELECT_STAGES,
   isPerPageStage,
-  nextStage,
   previousStage,
 } from "@/lib/protoprompt/stage-machine";
 import { TESTING_IDEA, TESTING_OPENAI_KEY, TESTING_PROJECT_NAME } from "@/lib/protoprompt/testing-flow";
@@ -34,8 +34,7 @@ export default function Home() {
 
   function handleAdvance() {
     if (!stage) return;
-    const next = nextStage(stage);
-    if (next) setStage(next);
+    setStage(advanceStage(stage));
   }
 
   function handleRetreat() {
