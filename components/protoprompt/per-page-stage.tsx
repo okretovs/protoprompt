@@ -16,6 +16,7 @@ import {
 import { selectedPageTitles } from "@/lib/protoprompt/pages";
 import { seedDefaultSelection } from "@/lib/protoprompt/selection";
 import { backLabel, canGoBack, continueLabel } from "@/lib/protoprompt/stage-machine";
+import { TESTING_DOSSIER, mockPageGroups } from "@/lib/protoprompt/testing-flow";
 import type {
   CouncilDossier,
   PageGroup,
@@ -27,6 +28,7 @@ interface PerPageStageProps {
   stage: "components" | "mockup_style";
   project: ProjectState;
   openAIKey: string;
+  testingMode?: boolean;
   onUpdateProject: (next: ProjectState) => void;
   onContinue: () => void;
   onBack: () => void;
@@ -44,7 +46,15 @@ const SECTION_KICKER: Record<StageId, string> = {
   final_prompt: "final prompt",
 };
 
-export function PerPageStage({ stage, project, openAIKey, onUpdateProject, onContinue, onBack }: PerPageStageProps) {
+export function PerPageStage({
+  stage,
+  project,
+  openAIKey,
+  testingMode = false,
+  onUpdateProject,
+  onContinue,
+  onBack,
+}: PerPageStageProps) {
   const pages = selectedPageTitles(project);
   const [pageIndex, setPageIndex] = useState(0);
   const [run, setRun] = useState<RunState>(() =>
@@ -64,19 +74,10 @@ export function PerPageStage({ stage, project, openAIKey, onUpdateProject, onCon
 
     async function load() {
       try {
-        const response = await fetch("/api/council/stage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage, project, openAIKey }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error ?? "Council run failed");
-        }
+        const { pageGroups, dossier } = testingMode
+          ? { pageGroups: mockPageGroups(stage, pages), dossier: TESTING_DOSSIER }
+          : await fetchPageGroups(stage, project, openAIKey);
         if (cancelled) return;
-
-        const pageGroups = data.pageGroups as PageGroup[];
-        const dossier = data.dossier as CouncilDossier | undefined;
 
         let nextProject = project;
         for (const group of pageGroups) {
@@ -106,7 +107,7 @@ export function PerPageStage({ stage, project, openAIKey, onUpdateProject, onCon
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, project, openAIKey, onUpdateProject]);
+  }, [stage, project, openAIKey, testingMode, onUpdateProject]);
 
   function retryWithoutCache() {
     const nextProject = clearGeneratedCouncilState(project);
@@ -210,4 +211,21 @@ export function PerPageStage({ stage, project, openAIKey, onUpdateProject, onCon
       </div>
     </section>
   );
+}
+
+async function fetchPageGroups(
+  stage: "components" | "mockup_style",
+  project: ProjectState,
+  openAIKey: string
+): Promise<{ pageGroups: PageGroup[]; dossier?: CouncilDossier }> {
+  const response = await fetch("/api/council/stage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stage, project, openAIKey }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error ?? "Council run failed");
+  }
+  return { pageGroups: data.pageGroups as PageGroup[], dossier: data.dossier as CouncilDossier | undefined };
 }

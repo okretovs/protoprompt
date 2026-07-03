@@ -15,6 +15,7 @@ import {
   nextStage,
   previousStage,
 } from "@/lib/protoprompt/stage-machine";
+import { TESTING_IDEA, TESTING_OPENAI_KEY, TESTING_PROJECT_NAME } from "@/lib/protoprompt/testing-flow";
 import { createProjectState } from "@/lib/protoprompt/types";
 import type { ProjectState, ScopeMode, StageId } from "@/lib/protoprompt/types";
 
@@ -22,6 +23,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [project, setProject] = useState<ProjectState | null>(null);
   const [stage, setStage] = useState<StageId | null>(null);
+  const [testingMode, setTestingMode] = useState(false);
   const [openAIKey, setOpenAIKey] = useState(() =>
     typeof window === "undefined" ? "" : readStoredOpenAIKey(window.localStorage)
   );
@@ -44,6 +46,20 @@ export default function Home() {
   function handleReset() {
     setProject(null);
     setStage(null);
+  }
+
+  function handleTestingToggle() {
+    const enabled = !testingMode;
+    setTestingMode(enabled);
+    if (enabled) {
+      setOpenAIKey(TESTING_OPENAI_KEY);
+      setProject(createProjectState(TESTING_IDEA, TESTING_PROJECT_NAME));
+      setStage("build_direction");
+    } else {
+      setProject(null);
+      setStage(null);
+      setOpenAIKey(typeof window === "undefined" ? "" : readStoredOpenAIKey(window.localStorage));
+    }
   }
 
   function handleScopeChange(scopeMode: ScopeMode) {
@@ -72,6 +88,13 @@ export default function Home() {
               onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             >
               {theme === "dark" ? "Light mode" : "Dark mode"}
+            </Button>
+            <Button
+              size="sm"
+              variant={testingMode ? "pp" : "ppGhost"}
+              onClick={handleTestingToggle}
+            >
+              {testingMode ? "Testing on" : "Testing"}
             </Button>
           </div>
           <h1 className="pp-text-primary text-4xl font-semibold tracking-tight">ProtoPrompt</h1>
@@ -151,6 +174,7 @@ export default function Home() {
             stage={stage}
             project={project}
             openAIKey={openAIKey}
+            testingMode={testingMode}
             onUpdateProject={handleUpdateProject}
             onContinue={handleAdvance}
             onBack={handleRetreat}
@@ -163,13 +187,16 @@ export default function Home() {
             stage={stage as "components" | "mockup_style"}
             project={project}
             openAIKey={openAIKey}
+            testingMode={testingMode}
             onUpdateProject={handleUpdateProject}
             onContinue={handleAdvance}
             onBack={handleRetreat}
           />
         )}
 
-        {project && !showStage && stage === null && <FinalPromptStage project={project} openAIKey={openAIKey} />}
+        {project && !showStage && stage === null && (
+          <FinalPromptStage project={project} openAIKey={openAIKey} testingMode={testingMode} />
+        )}
       </main>
     </div>
   );

@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { CouncilErrorCard, CouncilLoading } from "@/components/protoprompt/council-status";
 import { Button } from "@/components/ui/button";
 import { markdownFileName } from "@/lib/protoprompt/final-prompt-file";
+import { mockFinalPrompt } from "@/lib/protoprompt/testing-flow";
 import type { ProjectState } from "@/lib/protoprompt/types";
 
 interface FinalPromptStageProps {
   project: ProjectState;
   openAIKey: string;
+  testingMode?: boolean;
 }
 
 type RunState =
@@ -17,7 +19,7 @@ type RunState =
   | { status: "error"; message: string; markdown: string }
   | { status: "ready"; markdown: string };
 
-export function FinalPromptStage({ project, openAIKey }: FinalPromptStageProps) {
+export function FinalPromptStage({ project, openAIKey, testingMode = false }: FinalPromptStageProps) {
   const [run, setRun] = useState<RunState>({ status: "loading", markdown: "" });
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [generation, setGeneration] = useState(0);
@@ -28,6 +30,11 @@ export function FinalPromptStage({ project, openAIKey }: FinalPromptStageProps) 
     async function streamPrompt(attempt = 0): Promise<void> {
       setRun({ status: "loading", markdown: "" });
       try {
+        if (testingMode) {
+          const markdown = mockFinalPrompt(project);
+          setRun({ status: "ready", markdown });
+          return;
+        }
         const markdown = await readPromptStream(project, openAIKey, abortController.signal, (chunk) => {
           setRun((current) => ({ status: "loading", markdown: current.markdown + chunk }));
         });
@@ -48,7 +55,7 @@ export function FinalPromptStage({ project, openAIKey }: FinalPromptStageProps) 
 
     void streamPrompt();
     return () => abortController.abort();
-  }, [project, openAIKey, generation]);
+  }, [project, openAIKey, testingMode, generation]);
 
   async function handleCopy() {
     const markdown = run.markdown;
