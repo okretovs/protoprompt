@@ -8,6 +8,7 @@ import { MultiSelectStage } from "@/components/protoprompt/multi-select-stage";
 import { PerPageStage } from "@/components/protoprompt/per-page-stage";
 import { Button } from "@/components/ui/button";
 import { clearGeneratedCouncilState } from "@/lib/protoprompt/cached-options";
+import { readStoredOpenAIKey, saveStoredOpenAIKey } from "@/lib/protoprompt/openai-key";
 import {
   MULTI_SELECT_STAGES,
   isPerPageStage,
@@ -21,7 +22,9 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [project, setProject] = useState<ProjectState | null>(null);
   const [stage, setStage] = useState<StageId | null>(null);
-  const [openAIKey, setOpenAIKey] = useState("");
+  const [openAIKey, setOpenAIKey] = useState(() =>
+    typeof window === "undefined" ? "" : readStoredOpenAIKey(window.localStorage)
+  );
 
   function handleUpdateProject(next: ProjectState) {
     setProject(next);
@@ -41,7 +44,6 @@ export default function Home() {
   function handleReset() {
     setProject(null);
     setStage(null);
-    setOpenAIKey("");
   }
 
   function handleScopeChange(scopeMode: ScopeMode) {
@@ -83,7 +85,7 @@ export default function Home() {
 
         {!project && <IntakeScreen onSubmit={(idea, projectName, key) => {
           const next = createProjectState(idea, projectName);
-          setOpenAIKey(key);
+          setOpenAIKey(saveStoredOpenAIKey(window.localStorage, key));
           setProject(next);
           setStage("build_direction");
         }} />}
@@ -95,6 +97,25 @@ export default function Home() {
               New idea
             </Button>
           </div>
+        )}
+
+        {project && !openAIKey && (
+          <section className="pp-error-card pp-card flex flex-col gap-3">
+            <div>
+              <p className="pp-text-primary text-sm font-medium">OpenAI key required</p>
+              <p className="pp-text-secondary mt-1 text-sm">
+                Enter a key to continue this run. It is saved in this browser and never sent anywhere except OpenAI calls.
+              </p>
+            </div>
+            <input
+              type="password"
+              value={openAIKey}
+              onChange={(event) => setOpenAIKey(saveStoredOpenAIKey(window.localStorage, event.target.value))}
+              placeholder="sk-..."
+              autoComplete="off"
+              className="pp-mono rounded-[var(--pp-radius-sm)] border border-[var(--pp-border-hairline)] bg-[var(--pp-glass)] px-3 py-2 text-sm text-[var(--pp-text-primary)] outline-none placeholder:text-[var(--pp-text-muted)] focus-visible:border-[var(--pp-border-strong)]"
+            />
+          </section>
         )}
 
         {project && stage && (
